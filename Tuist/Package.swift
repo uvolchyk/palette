@@ -13,6 +13,7 @@
 let package = Package(
     name: "Sandbox",
     dependencies: [
-//      .package(name: "PLTMath", path: "../Packages/PLTMath"),
+     .package(name: "PLTMath", path: "../Packages/PLTMath"),
+//     .package(name: "PLTMetal", path: "../Packages/PLTMetal"),
     ]
 )

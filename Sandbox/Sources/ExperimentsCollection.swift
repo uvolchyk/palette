@@ -15,6 +15,13 @@ struct ExperimentsCollection: View {
           "Delaunay Triangulation",
           destination: DelaunayTriangulationView()
         )
+        NavigationLink(
+          "Dissolve",
+          destination: {
+            DissolveView()
+              .ignoresSafeArea()
+          }
+        )
       }
       .navigationTitle("Examples")
     }
