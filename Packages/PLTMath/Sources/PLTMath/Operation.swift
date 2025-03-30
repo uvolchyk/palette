@@ -53,70 +53,57 @@ public enum Operation {
   }
   
   public static func convexHull(points: [SIMD2<Float>]) -> [SIMD2<Float>] {
-      guard points.count >= 3 else { return points }
-      
-      // Brute-force: find all edges such that all other points lie on one side.
-      var hullEdges = [(SIMD2<Float>, SIMD2<Float>)]()
-      for i in 0..<points.count {
-          for j in 0..<points.count where i != j {
-              let p = points[i]
-              let q = points[j]
-              var isEdge = true
-              var sign: Float = 0
-              for k in 0..<points.count where k != i && k != j {
-                  let r = points[k]
-                  let cp = crossProduct(q - p, r - p)
-                  if cp != 0 {
-                      if sign == 0 {
-                          sign = cp
-                      } else if cp * sign < 0 {
-                          isEdge = false
-                          break
-                      }
-                  }
-              }
-              if isEdge {
-                  hullEdges.append((p, q))
-              }
-          }
+    // Ensure there are at least 3 points (3 points => already convex)
+    guard
+      points.count >= 3
+    else { return points }
+
+    let sorted = points.sorted {
+      $0.x == $1.x ? $0.y < $1.y : $0.x < $1.x
+    }
+
+    var upper: [SIMD2<Float>] = Array(sorted[0...1])
+
+    for point in sorted.dropFirst(2) {
+      upper.append(point)
+
+      while upper.count > 2 {
+        let cross = crossProduct(
+          upper[upper.count - 3],
+          upper[upper.count - 2],
+          upper[upper.count - 1]
+        )
+
+        // If cross product is zero or negative, the middle point doesn't contribute to the convex hull
+        if cross > 0 { break }
+
+        upper.remove(at: upper.count - 2)
       }
-      
-      // Collect all points that appeared as endpoints of a hull edge.
-      var hullPoints = Set<SIMD2<Float>>()
-      for (p, q) in hullEdges {
-          hullPoints.insert(p)
-          hullPoints.insert(q)
+    }
+
+    var lower: [SIMD2<Float>] = [sorted[sorted.count - 1], sorted[sorted.count - 2]]
+
+    for point in sorted.dropLast(2).reversed() {
+      lower.append(point)
+
+      while lower.count > 2 {
+        let cross = crossProduct(
+          lower[lower.count - 3],
+          lower[lower.count - 2],
+          lower[lower.count - 1]
+        )
+
+        // If cross product is zero or negative, the middle point doesn't contribute to the convex hull
+        if cross > 0 { break }
+
+        lower.remove(at: lower.count - 2)
       }
-      
-      // Order the hull points using Andrew's monotone chain.
-      let pointsOnHull = Array(hullPoints)
-      let sorted = pointsOnHull.sorted {
-          ($0.x, $0.y) < ($1.x, $1.y)
-      }
-      
-      var lower: [SIMD2<Float>] = []
-      for p in sorted {
-          while lower.count >= 2 &&
-                  crossProduct(lower[lower.count - 1] - lower[lower.count - 2], p - lower[lower.count - 2]) <= 0 {
-              lower.removeLast()
-          }
-          lower.append(p)
-      }
-      
-      var upper: [SIMD2<Float>] = []
-      for p in sorted.reversed() {
-          while upper.count >= 2 &&
-                  crossProduct(upper[upper.count - 1] - upper[upper.count - 2], p - upper[upper.count - 2]) <= 0 {
-              upper.removeLast()
-          }
-          upper.append(p)
-      }
-      
-      // The first and last points of each chain are duplicated.
-      lower.removeLast()
-      upper.removeLast()
-      
-      return lower + upper
+    }
+
+    lower.removeFirst()
+    lower.removeLast()
+
+    return upper + lower
   }
   
   func randomPoints(

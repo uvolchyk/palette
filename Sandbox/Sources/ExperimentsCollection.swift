@@ -22,6 +22,10 @@ struct ExperimentsCollection: View {
               .ignoresSafeArea()
           }
         )
+        NavigationLink(
+          "Convex Hull",
+          destination: ConvexHullView()
+        )
       }
       .navigationTitle("Examples")
     }
