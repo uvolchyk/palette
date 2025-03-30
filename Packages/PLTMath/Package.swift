@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
   name: "PLTMath",
+  platforms: [.iOS(.v17)],
   products: [
     .library(
       name: "PLTMath",
