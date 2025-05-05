@@ -26,6 +26,10 @@ struct ExperimentsCollection: View {
           "Convex Hull",
           destination: ConvexHullView()
         )
+        NavigationLink(
+          "Harmonic Button",
+          destination: HarmonicButtonContainerView()
+        )
       }
       .navigationTitle("Examples")
     }
