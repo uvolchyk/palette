@@ -30,6 +30,10 @@ struct ExperimentsCollection: View {
           "Harmonic Button",
           destination: HarmonicButtonContainerView()
         )
+        NavigationLink(
+          "Shader Exam",
+          destination: SEExerciseScreen()
+        )
       }
       .navigationTitle("Examples")
     }
