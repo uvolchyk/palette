@@ -15,7 +15,7 @@ final class Pikachu2dRenderer: NSObject, MTKViewDelegate {
   // MARK: Stored properties
   
   let device: any MTLDevice
-  var exercise: Exercise
+  var exercise: SEExercise
   
   let commandQueue: any MTLCommandQueue
   let library: any MTLLibrary
@@ -38,7 +38,7 @@ final class Pikachu2dRenderer: NSObject, MTKViewDelegate {
   
   // MARK: Initialization
   
-  required init(device: any MTLDevice, exercise: Exercise) {
+  required init(device: any MTLDevice, exercise: SEExercise) {
     self.device = device
     self.exercise = exercise
     
@@ -187,7 +187,7 @@ final class Pikachu2dRenderer: NSObject, MTKViewDelegate {
   
   // MARK: Update exercise shader
   
-  func setExercise(_ exercise: Exercise, view: MTKView) {
+  func setExercise(_ exercise: SEExercise, view: MTKView) {
     self.exercise = exercise
     
     // Update fragment function of second pass

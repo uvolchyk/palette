@@ -3,7 +3,6 @@
 #import "Quad.h"
 
 using namespace metal;
-using namespace Global;
 
 namespace Pikachu2d {
   vertex float4 quadVertex(

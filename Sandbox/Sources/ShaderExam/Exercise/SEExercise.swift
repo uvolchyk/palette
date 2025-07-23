@@ -1,5 +1,5 @@
 //
-//  Exercise.swift
+//  SEExercise.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/12/25.
@@ -8,13 +8,13 @@
 import SwiftUI
 
 struct SEExerciseScreen: View {
-  @State private var exercise: Exercise = .threshold
+  @State private var exercise: SEExercise = .threshold
   
   var body: some View {
-    MetalView(exercise: self.exercise)
+    SEMetalView(exercise: self.exercise)
       .toolbar {
         Picker("Exercise", selection: self.$exercise) {
-          ForEach(Exercise.allCases) {
+          ForEach(SEExercise.allCases) {
             Text($0.description)
           }
         }
@@ -25,7 +25,7 @@ struct SEExerciseScreen: View {
   }
 }
 
-enum Exercise: Identifiable, CustomStringConvertible, CaseIterable {
+enum SEExercise: Identifiable, CustomStringConvertible, CaseIterable {
   case passthrough
   case mirror
   case symmetry

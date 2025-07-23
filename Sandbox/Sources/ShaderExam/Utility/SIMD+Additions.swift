@@ -5,6 +5,7 @@
 //  Created by Uladzislau Volchyk on 7/12/25.
 //
 
+import CoreGraphics
 import simd
 
 extension Double {
@@ -95,5 +96,31 @@ extension float4x4 {
     let vectorR: SIMD4<Float> = [     0,      0,  zScale, -1]
     let vectorS: SIMD4<Float> = [     0,      0, wzScale,  0]
     self.init(vectorP, vectorQ, vectorR, vectorS)
+  }
+}
+
+extension CGSize {
+  var aspectMatrix: float4x4 {
+    let f_width = Float(width)
+    let f_height = Float(height)
+    
+    var scaleX: Float = 1
+    var scaleY: Float = 1
+    
+    if f_width > f_height {
+      scaleX = f_height / f_width
+    } else if f_height > f_width {
+      scaleY = f_width / f_height
+    }
+    
+    // Now build your matrix:
+    return float4x4(
+      rows: [
+        .init(scaleX, 0, 0, 0),
+        .init(0, scaleY, 0, 0),
+        .init(0, 0, 1, 0),
+        .init(0, 0, 0, 1),
+      ]
+    )
   }
 }
