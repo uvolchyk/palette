@@ -1,17 +1,20 @@
 //
-//  MTLQuestSeven.swift
+//  MTLQuestEight.swift
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/21/25.
+//  Created by Uladzislau Volchyk on 7/24/25.
 //
 
 import SwiftUI
 import MetalKit
 import PLTMetal
 
-/// https://www.opengl-tutorial.org/beginners-tutorials/tutorial-4-a-colored-cube/
-/// Working with 3D, displaying a coloured cube, animating it's rotation
-struct MTLQuestSeven: UIViewRepresentable {
+/// https://www.opengl-tutorial.org/beginners-tutorials/tutorial-5-a-textured-cube/
+/// https://ilkinulas.github.io/development/unity/2016/05/06/uv-mapping.html
+///
+/// Continue working with 3D, this time applying a texture on a cube.
+/// Study UV mapping
+struct MTLQuestEight: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -34,7 +37,7 @@ struct MTLQuestSeven: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestSeven {
+extension MTLQuestEight {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
@@ -49,9 +52,26 @@ extension MTLQuestSeven {
         var mvp        : float4x4
     }
 
+    let atlas       : MTLTexture
+    let sampler     : MTLSamplerState
+
     let exercise: MTLQuestExercise
     let library: PLTMetal.ShaderLibrary
     let device = MTLCreateSystemDefaultDevice()!
+
+    private static func loadTexture(
+      device: MTLDevice
+    ) throws -> MTLTexture {
+      let loader = MTKTextureLoader(device: device)
+      let url    = Bundle.main.url(forResource: "cube1", withExtension: "png")!
+      return try loader.newTexture(URL: url, options: [
+        .SRGB                         : false,
+        .textureUsage                 : MTLTextureUsage.shaderRead.rawValue,
+        .textureStorageMode           : MTLStorageMode.private.rawValue,
+        .origin                       : MTKTextureLoader.Origin.bottomLeft.rawValue,
+        .generateMipmaps              : true
+      ])
+    }
 
     lazy var renderer: MTLQuestRenderer = {
       MTLQuestRenderer(
@@ -71,11 +91,11 @@ extension MTLQuestSeven {
             $0.attributes[0].offset       = 0
             $0.attributes[0].bufferIndex  = 0
             // attribute(1) – color
-            $0.attributes[1].format       = .float3
+            $0.attributes[1].format       = .float2
             $0.attributes[1].offset       = MemoryLayout<Float>.size * 4
             $0.attributes[1].bufferIndex  = 0
 
-            $0.layouts[0].stride          = MemoryLayout<Float>.size * 7
+            $0.layouts[0].stride          = MemoryLayout<Float>.size * 6
           }
 
         let trianglePassDescriptor = MTLRenderPipelineDescriptor()
@@ -90,39 +110,62 @@ extension MTLQuestSeven {
         let pipeline = try! device.makeRenderPipelineState(descriptor: trianglePassDescriptor)
 
         // 2. Creating some data for the brush (paints)
+
         let viewSize = view.drawableSize
 
-        let indices: [UInt16] = [
-          0, 1, 3,
-          2, 1, 3,
-          0, 4, 3,
-          7, 4, 3,
-          0, 1, 4,
-          5, 1, 4,
-          3, 2, 7,
-          6, 2, 7,
-          1, 5, 2,
-          6, 5, 2,
-          4, 5, 7,
-          6, 5, 7,
-        ]
-
-        let indexBuffer = device.makeBuffer(
-          bytes: indices,
-          length: MemoryLayout<UInt16>.stride * indices.count,
-          options: []
-        )!
+        // Half-extent in NDC
+        let hx = Float(1.0)
+        let hy = Float(1.0)
 
         // x y z w r g b
         let quad: [Float] = [
-          -1, -1, -1, 1, 1, 0, 0, // bln
-          -1,  1, -1, 1, 0, 1, 0, // tln
-           1,  1, -1, 1, 0, 0, 1, // trn
-           1, -1, -1, 1, 1, 0, 1, // brn
-          -1, -1,  1, 1, 0, 1, 1, // blf
-          -1,  1,  1, 1, 1, 1, 0, // tlf
-           1,  1,  1, 1, 1, 1, 1, // trf
-           1, -1,  1, 1, 1, 1, 1, // brf
+            // Front (+Z), Face 1
+            -1, -1,  1, 1,  0.0, 0.25,
+             1, -1,  1, 1,  0.25, 0.25,
+             1,  1,  1, 1,  0.25, 0.5,
+            -1, -1,  1, 1,  0.0, 0.25,
+             1,  1,  1, 1,  0.25, 0.5,
+            -1,  1,  1, 1,  0.0, 0.5,
+
+            // Back (-Z)1,, Face 2
+             1, -1, -1, 1,  0.5, 0.25,
+            -1, -1, -1, 1,  0.25, 0.25,
+            -1,  1, -1, 1,  0.25, 0.5,
+             1, -1, -1, 1,  0.5, 0.25,
+            -1,  1, -1, 1,  0.25, 0.5,
+             1,  1, -1, 1,  0.5, 0.5,
+
+            // Left (-X)1,, Face 3
+            -1, -1, -1, 1,  0.5, 0.25,
+            -1, -1,  1, 1,  0.75, 0.25,
+            -1,  1,  1, 1,  0.75, 0.5,
+            -1, -1, -1, 1,  0.5, 0.25,
+            -1,  1,  1, 1,  0.75, 0.5,
+            -1,  1, -1, 1,  0.5, 0.5,
+
+            // Right (+X1,), Face 4
+             1, -1,  1, 1,  0.75, 0.25,
+             1, -1, -1, 1,  1.0, 0.25,
+             1,  1, -1, 1,  1.0, 0.5,
+             1, -1,  1, 1,  0.75, 0.25,
+             1,  1, -1, 1,  1.0, 0.5,
+             1,  1,  1, 1,  0.75, 0.5,
+
+            // Top (+Y),1, Face 5
+            -1,  1,  1, 1,  0.5, 0.5,
+             1,  1,  1, 1,  0.75, 0.5,
+             1,  1, -1, 1,  0.75, 0.75,
+            -1,  1,  1, 1,  0.5, 0.5,
+             1,  1, -1, 1,  0.75, 0.75,
+            -1,  1, -1, 1,  0.5, 0.75,
+
+            // Bottom (-1,Y), Face 6
+            -1, -1, -1, 1,  0.5, 0.0,
+             1, -1, -1, 1,  0.75, 0.0,
+             1, -1,  1, 1,  0.75, 0.25,
+            -1, -1, -1, 1,  0.5, 0.0,
+             1, -1,  1, 1,  0.75, 0.25,
+            -1, -1,  1, 1,  0.5, 0.25,
         ]
         
         let vertexBuffer = device.makeBuffer(
@@ -138,17 +181,12 @@ extension MTLQuestSeven {
           nearZ: 0.1,
           farZ: 100.0
         )
-//        let m_perspective = matrix_identity_float4x4
 
         let m_view = lookAt(
           eye: SIMD3<Float>(0, 8, 8),
           center: SIMD3<Float>(0, 0, 0),
           up: SIMD3<Float>(0, 3, 0)
         )
-//        let m_view = matrix_identity_float4x4
-
-//        let m_model = float4x4(1.0)
-//        let m_model = float4x4(diagonal: SIMD4<Float>(repeating: 1))
         let m_model = rotationMatrixY(angleRadians: rotationAngle)
 
         let mvp = m_perspective * m_view * m_model
@@ -158,7 +196,7 @@ extension MTLQuestSeven {
         )
         
         let depthDescriptor = MTLDepthStencilDescriptor()
-        depthDescriptor.depthCompareFunction = .less      // Like GL_LESS
+        depthDescriptor.depthCompareFunction = .less
         depthDescriptor.isDepthWriteEnabled = true
 
         let depthState = device.makeDepthStencilState(descriptor: depthDescriptor)!
@@ -175,12 +213,13 @@ extension MTLQuestSeven {
               index: 1
             )
 
-            encoder.drawIndexedPrimitives(
+            encoder.setFragmentTexture(self.atlas, index: 0)
+            encoder.setFragmentSamplerState(self.sampler, index: 0)
+
+            encoder.drawPrimitives(
               type: .triangle,
-              indexCount: indices.count,
-              indexType: .uint16,
-              indexBuffer: indexBuffer,
-              indexBufferOffset: 0
+              vertexStart: 0,
+              vertexCount: quad.count / 6
             )
           }
           .endEncoding()
@@ -196,10 +235,19 @@ extension MTLQuestSeven {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestSeven.self)
+        namespace: String(describing: MTLQuestEight.self)
       )
+      self.atlas    = try! Self.loadTexture(device: device)
+      let sampDesc  = MTLSamplerDescriptor()
+      sampDesc.minFilter   = .nearest        // prevent inter-frame bleeding
+      sampDesc.magFilter   = .nearest
+      sampDesc.sAddressMode = .clampToEdge
+      sampDesc.tAddressMode = .clampToEdge
+      self.sampler = device.makeSamplerState(descriptor: sampDesc)!
+
       self.displayLink = CADisplayLink(target: self, selector: #selector(updateRotation))
       self.displayLink?.add(to: .main, forMode: .default)
+
     }
 
     deinit {
@@ -269,3 +317,4 @@ extension MTLQuestSeven {
     }
   }
 }
+
