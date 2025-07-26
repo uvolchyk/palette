@@ -76,6 +76,13 @@ extension Float {
   @_transparent public static var τ: Float { Float(Double.τ) }
   /// Number of radians in *half a turn*.
   @_transparent public static var π: Float { Float(Double.π) }
+
+  public func clamp(
+    minValue: Float,
+    maxValue: Float
+  ) -> Float {
+    min(max(minValue, self), maxValue)
+  }
 }
 
 public extension SIMD4 {

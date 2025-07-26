@@ -8,7 +8,7 @@
 import ModelIO
 import MetalKit
 
-public struct MDLObjectParser: ~Copyable {
+public struct MDLObjectParser {
   public let mesh: MTKMesh
   public let submesh: MTKSubmesh
 
