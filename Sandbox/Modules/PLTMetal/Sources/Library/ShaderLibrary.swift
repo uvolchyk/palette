@@ -7,6 +7,7 @@
 
 import MetalKit
 
+@dynamicMemberLookup
 public struct ShaderLibrary {
   let library: MTLLibrary
   let namespace: String?
@@ -33,5 +34,13 @@ public struct ShaderLibrary {
     }
 
     return function
+  }
+  
+  public subscript(
+    dynamicMember member: String
+  ) -> MTLFunction {
+    get throws {
+      try function(named: member)
+    }
   }
 }

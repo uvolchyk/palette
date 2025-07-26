@@ -1,12 +1,68 @@
 //
-//  SIMD+Additions.swift
+//  Math3D.swift
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/12/25.
+//  Created by Uladzislau Volchyk on 7/26/25.
 //
 
 import CoreGraphics
 import simd
+
+extension simd_float4x4 {
+  public static func perspective(
+    fovYRadians: Float,
+    aspect: Float,
+    nearZ: Float,
+    farZ: Float
+  ) -> Self {
+    let yScale = 1 / tan(fovYRadians * 0.5)
+    let xScale = yScale / aspect
+    let zRange = farZ - nearZ
+    let zScale = farZ / zRange
+    let wz = -nearZ * zScale
+    
+    return Self(
+      SIMD4<Float>( xScale,   0,      0,   0 ),
+      SIMD4<Float>(      0, yScale,   0,   0 ),
+      SIMD4<Float>(      0,      0, zScale, 1 ),
+      SIMD4<Float>(      0,      0,   wz,   0 )
+    )
+  }
+
+  public static func lookAt(
+    eye: SIMD3<Float>,
+    center: SIMD3<Float>,
+    up: SIMD3<Float>
+  ) -> simd_float4x4 {
+    let zAxis = normalize(center - eye)         // Forward
+    let xAxis = normalize(cross(up, zAxis))     // Right
+    let yAxis = cross(zAxis, xAxis)             // Up
+    let translation = SIMD3<Float>(
+      -dot(xAxis, eye),
+       -dot(yAxis, eye),
+       -dot(zAxis, eye)
+    )
+    return simd_float4x4(
+      SIMD4<Float>(xAxis.x, yAxis.x, zAxis.x, 0),
+      SIMD4<Float>(xAxis.y, yAxis.y, zAxis.y, 0),
+      SIMD4<Float>(xAxis.z, yAxis.z, zAxis.z, 0),
+      SIMD4<Float>(translation.x, translation.y, translation.z, 1)
+    )
+  }
+
+  public static func rotationY(
+    angleRadians: Float
+  ) -> Self {
+    let c = cos(angleRadians)
+    let s = sin(angleRadians)
+    return simd_float4x4(
+      SIMD4<Float>( c, 0,  s, 0),
+      SIMD4<Float>( 0, 1,  0, 0),
+      SIMD4<Float>(-s, 0,  c, 0),
+      SIMD4<Float>( 0, 0,  0, 1)
+    )
+  }
+}
 
 extension Double {
   /// Number of radians in *one turn*.
@@ -22,7 +78,7 @@ extension Float {
   @_transparent public static var π: Float { Float(Double.π) }
 }
 
-extension SIMD4 {
+public extension SIMD4 {
   var xy: SIMD2<Scalar> {
     SIMD2([self.x, self.y])
   }
@@ -32,7 +88,7 @@ extension SIMD4 {
   }
 }
 
-extension float4x4 {
+public extension float4x4 {
   /// Creates a 4x4 matrix representing a translation given by the provided vector.
   /// - parameter vector: Vector giving the direction and magnitude of the translation.
   init(translate vector: SIMD3<Float>) {
@@ -100,7 +156,7 @@ extension float4x4 {
 }
 
 extension CGSize {
-  var aspectMatrix: float4x4 {
+  public var aspectMatrix: float4x4 {
     let f_width = Float(width)
     let f_height = Float(height)
     

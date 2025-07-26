@@ -81,8 +81,8 @@ extension MTLQuestSeven {
         let trianglePassDescriptor = MTLRenderPipelineDescriptor()
           .configure {
             $0.vertexDescriptor = vDesc
-            $0.vertexFunction = try! library.function(named: "funVertex")
-            $0.fragmentFunction = try! library.function(named: "funFragment")
+            $0.vertexFunction = try! library.funVertex
+            $0.fragmentFunction = try! library.funFragment
             $0.colorAttachments[0].pixelFormat = view.colorPixelFormat
             $0.depthAttachmentPixelFormat = .depth32Float
           }

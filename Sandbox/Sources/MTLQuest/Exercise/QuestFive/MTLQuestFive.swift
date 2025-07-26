@@ -8,6 +8,7 @@
 import SwiftUI
 import MetalKit
 import PLTMetal
+import PLTMath
 
 /// https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator
 /// Flipbook animation

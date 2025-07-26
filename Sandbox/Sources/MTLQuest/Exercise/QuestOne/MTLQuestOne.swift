@@ -8,6 +8,7 @@
 import SwiftUI
 import MetalKit
 import PLTMetal
+import PLTMath
 
 /// Solid-color triangle
 /// Set up the render pipeline, vertex buffer, and a fragment shader that returns a constant color. Confirms your tool-chain works.
