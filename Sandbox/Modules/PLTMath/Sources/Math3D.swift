@@ -49,19 +49,6 @@ extension simd_float4x4 {
       SIMD4<Float>(translation.x, translation.y, translation.z, 1)
     )
   }
-
-  public static func rotationY(
-    angleRadians: Float
-  ) -> Self {
-    let c = cos(angleRadians)
-    let s = sin(angleRadians)
-    return simd_float4x4(
-      SIMD4<Float>( c, 0,  s, 0),
-      SIMD4<Float>( 0, 1,  0, 0),
-      SIMD4<Float>(-s, 0,  c, 0),
-      SIMD4<Float>( 0, 0,  0, 1)
-    )
-  }
 }
 
 extension Double {
@@ -82,6 +69,10 @@ extension Float {
     maxValue: Float
   ) -> Float {
     min(max(minValue, self), maxValue)
+  }
+
+  public static func lerp(_ from: Float, _ to: Float, _ t: Float) -> Float {
+    from + (to - from) * t
   }
 }
 
@@ -185,5 +176,65 @@ extension CGSize {
         .init(0, 0, 0, 1),
       ]
     )
+  }
+}
+
+extension simd_float4x4 {
+  /// Rotation around Z axis
+  public static func rotationZ(angleRadians: Float) -> simd_float4x4 {
+    let c = cos(angleRadians)
+    let s = sin(angleRadians)
+    return simd_float4x4(
+      SIMD4<Float>( c,  s, 0, 0),
+      SIMD4<Float>(-s,  c, 0, 0),
+      SIMD4<Float>( 0,  0, 1, 0),
+      SIMD4<Float>( 0,  0, 0, 1)
+    )
+  }
+
+  /// Rotation around X axis
+  public static func rotationX(angleRadians: Float) -> simd_float4x4 {
+    let c = cos(angleRadians)
+    let s = sin(angleRadians)
+    return simd_float4x4(
+      SIMD4<Float>(1, 0,  0, 0),
+      SIMD4<Float>(0, c,  s, 0),
+      SIMD4<Float>(0,-s,  c, 0),
+      SIMD4<Float>(0, 0,  0, 1)
+    )
+  }
+
+  /// Rotation around Y axis
+  public static func rotationY(angleRadians: Float) -> simd_float4x4 {
+    let c = cos(angleRadians)
+    let s = sin(angleRadians)
+    return simd_float4x4(
+      SIMD4<Float>( c, 0, -s, 0),
+      SIMD4<Float>( 0, 1,  0, 0),
+      SIMD4<Float>( s, 0,  c, 0),
+      SIMD4<Float>( 0, 0,  0, 1)
+    )
+  }
+
+  public init(
+    quaternionFromYaw yaw: Float, pitch: Float, head: Float
+  ) {
+    // Euler angles order: yaw (Y), pitch (X), head (Z)
+    let qYaw = simd_quatf(angle: yaw, axis: SIMD3<Float>(0, 1, 0))
+    let qPitch = simd_quatf(angle: pitch, axis: SIMD3<Float>(1, 0, 0))
+    let qHead = simd_quatf(angle: head, axis: SIMD3<Float>(0, 0, 1))
+
+    self = simd_float4x4(qHead * qPitch * qYaw)
+  }
+
+  public init(
+    eulerFromYaw yaw: Float, pitch: Float, head: Float
+  ) {
+    // Rotation order: Z(head) * X(pitch) * Y(yaw)
+    let rz = simd_float4x4.rotationZ(angleRadians: head)
+    let rx = simd_float4x4.rotationX(angleRadians: pitch)
+    let ry = simd_float4x4.rotationY(angleRadians: yaw)
+
+    self = rz * rx * ry
   }
 }
