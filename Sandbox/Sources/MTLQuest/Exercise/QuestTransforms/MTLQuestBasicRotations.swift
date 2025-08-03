@@ -1,5 +1,5 @@
 //
-//  MTLQuestTransforms.swift
+//  MTLQuestBasicRotations.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/31/25.
@@ -20,7 +20,7 @@ import PLTMath
 /// Supports two modes for rotation:
 /// - Quaternion mode (default): rotations are applied using quaternions.
 /// - Euler mode: rotations are applied by composing Euler angle rotation matrices in Z (head), X (pitch), Y (yaw) order.
-struct MTLQuestTransforms: UIViewRepresentable {
+struct MTLQuestBasicRotations: UIViewRepresentable {
   let exercise: MTLQuestExercise
   @Binding var yaw0: Float
   @Binding var pitch0: Float
@@ -30,6 +30,7 @@ struct MTLQuestTransforms: UIViewRepresentable {
   @Binding var head1: Float
   @Binding var position: Int
   @Binding var useQuaternion: Bool
+  @Binding var automaticRotation: Bool
   var animationDuration: Double = 2.0
   
   func makeUIView(context: Context) -> MTKView {
@@ -63,12 +64,13 @@ struct MTLQuestTransforms: UIViewRepresentable {
       yaw0: yaw0, pitch0: pitch0, head0: head0,
       yaw1: yaw1, pitch1: pitch1, head1: head1,
       position: position,
-      useQuaternion: useQuaternion
+      useQuaternion: useQuaternion,
+      automaticRotation: automaticRotation
     )
   }
 }
 
-extension MTLQuestTransforms {
+extension MTLQuestBasicRotations {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(
@@ -81,6 +83,7 @@ extension MTLQuestTransforms {
       head1: $head1,
       position: $position,
       useQuaternion: $useQuaternion,
+      automaticRotation: $automaticRotation,
       animationDuration: animationDuration
     )
   }
@@ -110,6 +113,9 @@ extension MTLQuestTransforms {
 
     private var position: Binding<Int>
     private var useQuaternion: Binding<Bool>
+    private var automaticRotation: Binding<Bool>
+
+    private var automaticAngle: Float = 0
 
     weak var mtkView: MTKView?
 
@@ -168,26 +174,45 @@ extension MTLQuestTransforms {
           farZ: 100.0
         )
         let radius = cameraDistance
-
-        /// https://en.wikipedia.org/wiki/Spherical_coordinate_system
-        /// https://math.libretexts.org/Courses/Mount_Royal_University/Calculus_for_Scientists_II/7%3A_Vector_Spaces/5.7%3A_Cylindrical_and_Spherical_Coordinates
-        // Compute eye using camera pitch and yaw for the view
-        let cx = cos(pitch0) * sin(yaw0)
-        let cy = sin(pitch0)
-        let cz = cos(pitch0) * cos(yaw0)
-
-        let eye = SIMD3<Float>(cx, cy, cz) * radius
-        let center = SIMD3<Float>(cameraX, cameraY, 0)
+        let eye = SIMD3<Float>(0.0, 0.0, 1.0) * radius
+//        let center = SIMD3<Float>(cameraX, cameraY, 0)
+        let center = SIMD3<Float>(0.0, -12.0, 0.0)
 
         // Determine current target rotation based on animation state or position
         var targetRotationMatrix: simd_float4x4 = matrix_identity_float4x4
+        
+        // Determine the effective yaw, pitch, head based on automaticRotation override
+        let pos = position.wrappedValue
+        let activeYaw: Float
+        let activePitch: Float
+        let activeHead: Float
+        
+        if automaticRotation.wrappedValue {
+          // Automatic rotation active: override yaw with internal automaticAngle,
+          // pitch and head set to zero for smooth automatic rotation
+          activeYaw = automaticAngle
+          activePitch = automaticAngle
+          activeHead = automaticAngle
+        } else {
+          // Use bindings yaw/pitch/head per position normally
+          if pos == 0 {
+            activeYaw = yaw0
+            activePitch = pitch0
+            activeHead = head0
+          } else {
+            activeYaw = yaw1
+            activePitch = pitch1
+            activeHead = head1
+          }
+        }
 
         if useQuaternion.wrappedValue {
           // Quaternion mode behavior
 
           if
             let toQuat = animationTo,
-            let start = animationStartTime
+            let start = animationStartTime,
+            !automaticRotation.wrappedValue // Disable animation while automatic rotation active
           {
             let elapsed = CACurrentMediaTime() - start
             let t = min(1.0, elapsed / animationDuration)
@@ -202,42 +227,24 @@ extension MTLQuestTransforms {
               targetRotationMatrix = currentRotation
             }
           } else {
-            // No animation, just use quaternion from active set
-            let pos = position.wrappedValue
-            currentRotation = pos == 0 ?
-            float4x4(quaternionFromYaw: yaw0, pitch: pitch0, head: head0) :
-            float4x4(quaternionFromYaw: yaw1, pitch: pitch1, head: head1)
-        
+            // No animation or automatic rotation active, just use quaternion from effective yaw/pitch/head
+            currentRotation = float4x4(quaternionFromYaw: activeYaw, pitch: activePitch, head: activeHead)
             targetRotationMatrix = currentRotation
           }
 
         } else {
           // Euler mode behavior
 
-          // Current yaw/pitch/head values for both sets
-//          let currentYaw0 = yaw0.wrappedValue
-//          let currentPitch0 = pitch0.wrappedValue
-//          let currentHead0 = head0.wrappedValue
-//
-//          let currentYaw1 = yaw1.wrappedValue
-//          let currentPitch1 = pitch1.wrappedValue
-//          let currentHead1 = head1.wrappedValue
-
-          let pos = position.wrappedValue
-
-          if let start = animationStartTime {
+          if let start = animationStartTime, !automaticRotation.wrappedValue {
             let elapsed = CACurrentMediaTime() - start
             let t = min(1.0, elapsed / animationDuration)
 
             if t >= 1.0 {
               animationStartTime = nil
-
-              if pos == 0 {
-                targetRotationMatrix = .init(eulerFromYaw: yaw0, pitch: pitch0, head: head0)
-              } else {
-                targetRotationMatrix = .init(eulerFromYaw: yaw1, pitch: pitch1, head: head1)
-              }
+              targetRotationMatrix = float4x4(eulerFromYaw: activeYaw, pitch: activePitch, head: activeHead)
             } else {
+              // Interpolate yaw/pitch/head between previous and current positions
+
               let fromYaw = pos == 0 ? yaw1 : yaw0
               let toYaw = pos == 1 ? yaw1 : yaw0
 
@@ -250,15 +257,11 @@ extension MTLQuestTransforms {
               let interpYaw: Float = .lerp(fromYaw, toYaw, Float(t))
               let interpPitch: Float = .lerp(fromPitch, toPitch, Float(t))
               let interpHead: Float = .lerp(fromHead, toHead, Float(t))
-              targetRotationMatrix = .init(eulerFromYaw: interpYaw, pitch: interpPitch, head: interpHead)
+              targetRotationMatrix = float4x4(eulerFromYaw: interpYaw, pitch: interpPitch, head: interpHead)
             }
           } else {
-            // No animation; use current yaw/pitch/head of active position
-            if pos == 0 {
-              targetRotationMatrix = .init(eulerFromYaw: yaw0, pitch: pitch0, head: head0)
-            } else {
-              targetRotationMatrix = .init(eulerFromYaw: yaw1, pitch: pitch1, head: head1)
-            }
+            // No animation or automatic rotation active; use current effective yaw/pitch/head
+            targetRotationMatrix = float4x4(eulerFromYaw: activeYaw, pitch: activePitch, head: activeHead)
           }
 
           currentRotation = targetRotationMatrix
@@ -271,7 +274,7 @@ extension MTLQuestTransforms {
           eye: eye,
           center: center,
           up: SIMD3<Float>(0, 3, 0)
-        ) * rotationMatrix
+        )
 
         let renderPD_objects = MTLRenderPipelineDescriptor().configure {
           $0.vertexDescriptor = vertexDescriptor
@@ -286,11 +289,9 @@ extension MTLQuestTransforms {
           .makeRenderCommandEncoder(descriptor: viewRenderDescriptor)
 
         for mdlObject in mdlObjects {
-          let m_model: simd_float4x4 =  .init(
-            translate: SIMD3<Float>(0, 0, 0)
-          ) * .rotationY(angleRadians: rotationAngle)
+          let m_model: float4x4 = rotationMatrix
 
-          let mvp = m_perspective * m_view * m_model
+          let mvp = m_perspective * m_view * rotationMatrix * m_model
           var uniforms = SceneUniforms(
             mvp: mvp,
             model: m_model
@@ -339,7 +340,8 @@ extension MTLQuestTransforms {
 //        }
         let renderPipeline_gizmo = try! device.makeRenderPipelineState(descriptor: renderPD_objects)
 
-        let vertex_gizmo: [Float] = [
+        // Base axis lines for gizmo: X (red), Y (green), Z (blue)
+        var vertex_gizmo: [Float] = [
           0, 0, 0, 1, 0, 0,
           1, 0, 0, 1, 0, 0,
           0, 0, 0, 0, 1, 0,
@@ -348,15 +350,45 @@ extension MTLQuestTransforms {
           0, 0, 1, 0, 0, 1,
         ]
 
+        // --- Append rotation axis line for current rotation ---
+        // This line will be drawn in yellow (1,1,0) and extends from -axisDir to +axisDir
+
+        // Length of the axis line for visibility
+        let axisLength: Float = 1.5
+
+        // Compute the axis direction based on current rotation mode
+        let axisDir: SIMD3<Float>
+        if useQuaternion.wrappedValue {
+          // Extract axis from quaternion form of current rotation
+          let quat = simd_quatf(currentRotation)
+          // Normalize to ensure direction vector is unit length
+          axisDir = simd_normalize(quat.axis)
+        } else {
+          // Euler mode - for simplicity, use Y axis as rotation axis
+          axisDir = SIMD3<Float>(0, 1, 0)
+        }
+
+        // Start vertex at negative axis direction scaled by length, color yellow (1,1,0)
+        vertex_gizmo.append(contentsOf: [
+          -axisLength * axisDir.x, -axisLength * axisDir.y, -axisLength * axisDir.z,
+          1, 1, 0
+        ])
+        // End vertex at positive axis direction scaled by length, color yellow (1,1,0)
+        vertex_gizmo.append(contentsOf: [
+          axisLength * axisDir.x, axisLength * axisDir.y, axisLength * axisDir.z,
+          1, 1, 0
+        ])
+
         let vertexBuffer_gizmo = device.makeBuffer(
           bytes: vertex_gizmo,
           length: MemoryLayout<Float>.size * vertex_gizmo.count
         )
 
-        let mvp = m_perspective * m_view * matrix_identity_float4x4
+        let m_model_gizmo = rotationMatrix
+        let mvp_gizmo = m_perspective * m_view * rotationMatrix * m_model_gizmo
         var uniforms = SceneUniforms(
-          mvp: mvp,
-          model: matrix_identity_float4x4
+          mvp: mvp_gizmo,
+          model: m_model_gizmo
         )
 
         renderEncoder?
@@ -369,10 +401,11 @@ extension MTLQuestTransforms {
               index: 1
             )
 
+            // Updated vertexCount to 8 (6 base vertices + 2 for axis line)
             encoder.drawPrimitives(
               type: .line,
               vertexStart: 0,
-              vertexCount: 6
+              vertexCount: 8
             )
           }
 
@@ -392,12 +425,13 @@ extension MTLQuestTransforms {
       head1: Binding<Float>,
       position: Binding<Int>,
       useQuaternion: Binding<Bool>,
+      automaticRotation: Binding<Bool>,
       animationDuration: Double = 2.0
     ) {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestTransforms.self)
+        namespace: String(describing: MTLQuestBasicRotations.self)
       )
 
       self._yaw0 = { yaw0.wrappedValue }
@@ -410,6 +444,7 @@ extension MTLQuestTransforms {
 
       self.position = position
       self.useQuaternion = useQuaternion
+      self.automaticRotation = automaticRotation
 
       self.animationDuration = animationDuration
 
@@ -455,12 +490,13 @@ extension MTLQuestTransforms {
 
     /// Handles model's individual transforms
     @objc private func modelAnimation() {
-//      rotationAngle += 0.012
-//      if rotationAngle > 2 * .pi {
-//        rotationAngle -= 2 * .pi
-//      }
-//
-//      mtkView?.setNeedsDisplay()
+      if automaticRotation.wrappedValue {
+        automaticAngle += 0.012
+        if automaticAngle > 2 * .pi {
+          automaticAngle -= 2 * .pi
+        }
+        mtkView?.setNeedsDisplay()
+      }
     }
 
     func startRotationAnimation(to targetQuat: simd_float4x4) {
@@ -537,8 +573,11 @@ extension MTLQuestTransforms {
       yaw0: Float, pitch0: Float, head0: Float,
       yaw1: Float, pitch1: Float, head1: Float,
       position: Int,
-      useQuaternion: Bool
+      useQuaternion: Bool,
+      automaticRotation: Bool
     ) {
+      self.automaticRotation.wrappedValue = automaticRotation
+
       var didUpdateAnimation = false
       
       if position != lastKnownPosition {
@@ -570,7 +609,11 @@ extension MTLQuestTransforms {
 }
 
 // Note: When using MTLQuestTransforms, pass bindings for yaw0, pitch0, head0, yaw1, pitch1, head1,
-// position, and the new `useQuaternion` binding to enable two-way synchronization with the parent SwiftUI view
-// for both transform sets and rotation mode selection.
+// position, the new `useQuaternion` binding to enable two-way synchronization with the parent SwiftUI view,
+// and the new `automaticRotation` binding to enable automatic smooth rotation mode.
+// The automatic rotation angle is managed internally by Coordinator and updates automatically on each frame.
 // When `useQuaternion` is true, rotations use quaternion math.
 // When false, rotations use Euler angle matrices with Z (head), X (pitch), Y (yaw) order.
+// When `automaticRotation` is true, the rotation overrides yaw with an internal angle that increments over time,
+// and sets pitch and head to zero, making the model smoothly rotate automatically regardless of user input.
+

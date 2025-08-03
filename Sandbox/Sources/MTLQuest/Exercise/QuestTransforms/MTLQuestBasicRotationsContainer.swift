@@ -1,5 +1,5 @@
 //
-//  MTLQuestTransformsContainer.swift
+//  MTLQuestBasicRotationsContainer.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/31/25.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct MTLQuestTransformsContainer: View {
+struct MTLQuestBasicRotationsContainer: View {
   @State private var showPanel = false
   
   @State private var yaw0: Float = 0
@@ -21,11 +21,14 @@ struct MTLQuestTransformsContainer: View {
   @State private var position: Int = 0
   @State private var useQuaternion: Bool = true
   
+  // New state property to control automatic rotation toggle
+  @State private var automaticRotation: Bool = true
+  
   let exercise: MTLQuestExercise
   
   var body: some View {
     ZStack(alignment: .bottom) {
-      MTLQuestTransforms(
+      MTLQuestBasicRotations(
         exercise: exercise,
         yaw0: $yaw0,
         pitch0: $pitch0,
@@ -35,7 +38,8 @@ struct MTLQuestTransformsContainer: View {
         head1: $head1,
         position: $position,
         useQuaternion: $useQuaternion,
-        animationDuration: 0.5
+        automaticRotation: $automaticRotation,
+        animationDuration: 2.0
       )
       .edgesIgnoringSafeArea(.all)
       
@@ -50,10 +54,10 @@ struct MTLQuestTransformsContainer: View {
       .padding(.bottom, 16)
     }
     .sheet(isPresented: $showPanel) {
-      VStack(spacing: 24) {
+      VStack(spacing: 24.0) {
         Text("Camera Controls")
           .font(.headline)
-
+        
         HStack {
           Text("Method")
           Picker(
@@ -86,9 +90,22 @@ struct MTLQuestTransformsContainer: View {
           .pickerStyle(.segmented)
         }
         
+        // Toggle for automatic rotation
+        Toggle("Automatic Rotation", isOn: $automaticRotation)
+        
         Group {
-          HStack {
-            Text("Yaw (Oy - Green) [Pos \(position + 1)]")
+          VStack(alignment: .leading) {
+            HStack {
+              Text("Yaw (Oy - Green): \(String(format: "%.2f", position == 0 ? yaw0 : yaw1))")
+              Button(
+                action: {
+                  if position == 0 { yaw0 = 0 } else { yaw1 = 0 }
+                },
+                label: {
+                  Image(systemName: "arrow.clockwise")
+                }
+              )
+            }
             Slider(value: Binding(
               get: {
                 position == 0 ? yaw0 : yaw1
@@ -101,10 +118,19 @@ struct MTLQuestTransformsContainer: View {
                 }
               }
             ), in: -Float.pi ... Float.pi, step: 0.01)
-            Text(String(format: "%.2f", position == 0 ? yaw0 : yaw1))
           }
-          HStack {
-            Text("Pitch (Ox - Red) [Pos \(position + 1)]")
+          VStack(alignment: .leading) {
+            HStack {
+              Text("Pitch (Ox - Red): \(String(format: "%.2f", position == 0 ? pitch0 : pitch1))")
+              Button(
+                action: {
+                  if position == 0 { pitch0 = 0 } else { pitch1 = 0 }
+                },
+                label: {
+                  Image(systemName: "arrow.clockwise")
+                }
+              )
+            }
             Slider(value: Binding(
               get: {
                 position == 0 ? pitch0 : pitch1
@@ -117,10 +143,19 @@ struct MTLQuestTransformsContainer: View {
                 }
               }
             ), in: -Float.pi ... Float.pi, step: 0.01)
-            Text(String(format: "%.2f", position == 0 ? pitch0 : pitch1))
           }
-          HStack {
-            Text("Head (Oz - Blue) [Pos \(position + 1)]")
+          VStack(alignment: .leading) {
+            HStack {
+              Text("Head (Oz - Blue): \(String(format: "%.2f", position == 0 ? head0 : head1))")
+              Button(
+                action: {
+                  if position == 0 { head0 = 0 } else { head1 = 0 }
+                },
+                label: {
+                  Image(systemName: "arrow.clockwise")
+                }
+              )
+            }
             Slider(value: Binding(
               get: {
                 position == 0 ? head0 : head1
@@ -133,7 +168,6 @@ struct MTLQuestTransformsContainer: View {
                 }
               }
             ), in: -Float.pi ... Float.pi, step: 0.01)
-            Text(String(format: "%.2f", position == 0 ? head0 : head1))
           }
         }
         

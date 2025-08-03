@@ -1,5 +1,5 @@
 //
-//  MTLQuestTransforms.metal
+//  MTLQuestBasicRotations.metal
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/31/25.
@@ -8,7 +8,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-namespace MTLQuestTransforms {
+namespace MTLQuestBasicRotations {
   struct SceneUniforms {
     float4x4 mvp;
     float4x4 model;

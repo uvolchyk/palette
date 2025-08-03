@@ -11,7 +11,7 @@ struct MTLQuestExerciseScreen: View {
   @State private var exercise: MTLQuestExercise = .wireframe
   
   var body: some View {
-    MTLQuestTransformsContainer(exercise: .checkerboard)
+    MTLQuestBasicRotationsContainer(exercise: .checkerboard)
 //    MTLQuestTenContainer(exercise: .checkerboard)
 //    MTLQuestTen(exercise: .checkerboard)
 //    MTLQuestNine(exercise: .checkerboard)
