@@ -104,6 +104,10 @@ public extension float4x4 {
     self.init(diagonal: [s, s, s, 1])
   }
 
+  init(scale s: SIMD3<Float>) {
+    self.init(diagonal: .init(s.x, s.y, s.z, 1))
+  }
+
   /// Creates a 4x4 matrix that will rotate through the given vector and given angle.
   /// - parameter angle: The amount of radians to rotate from the given vector center.
   init(rotate vector: SIMD3<Float>, angle: Float) {

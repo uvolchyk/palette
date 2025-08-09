@@ -3,9 +3,6 @@
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/31/25.
-//
-//  Updated to support two-way binding for yaw, pitch, and head angles,
-//  and to optionally use quaternion or Euler angle rotation modes.
 
 import SwiftUI
 import MetalKit
