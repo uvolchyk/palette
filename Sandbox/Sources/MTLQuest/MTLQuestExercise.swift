@@ -15,7 +15,6 @@ struct MTLQuestExerciseScreen: View {
 //    MTLQuestInstancedRotationsContainer(exercise: .checkerboard)
 //    MTLQuestBasicRotationsContainer(exercise: .checkerboard)
 //    MTLQuestCameraRotationContainer(exercise: .checkerboard)
-//    MTLQuestBasicRotations(exercise: .checkerboard)
 //    MTLQuestModelLoading(exercise: .checkerboard)
 //    MTLQuestUVMapping(exercise: .checkerboard)
 //    MTLQuestBasic3D(exercise: .checkerboard)
