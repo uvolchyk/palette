@@ -1,8 +1,8 @@
 //
-//  MTLQuestSeven.metal
+//  MTLQuestUVMapping.metal
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/21/25.
+//  Created by Uladzislau Volchyk on 7/24/25.
 //
 
 #include <metal_stdlib>
@@ -10,7 +10,7 @@
 
 using namespace metal;
 
-namespace MTLQuestSeven {
+namespace MTLQuestUVMapping {
   struct SceneUniforms
   {
       float4x4     mvp;
@@ -18,12 +18,12 @@ namespace MTLQuestSeven {
 
   struct VertexIn {
     float4 position  [[attribute(0)]];
-    float3 color  [[attribute(1)]];
+    float2 uv  [[attribute(1)]];
   };
 
   struct VertexOut {
     float4 position [[position]]; // screen pixels
-    float3 color;
+    float2 uv;
   };
 
   [[vertex]] VertexOut funVertex(
@@ -32,16 +32,18 @@ namespace MTLQuestSeven {
   ) {
     return VertexOut {
       .position = uniforms.mvp * in.position,
-      .color = in.color,
+      .uv = in.uv,
     };
   }
 
   [[fragment]] float4 funFragment(
-    VertexOut in [[stage_in]]
-//    texture2d<float>       spriteTex  [[texture(0)]],
-//    sampler samp [[sampler(0)]],
+    VertexOut in [[stage_in]],
+    texture2d<float>       spriteTex  [[texture(0)]],
+    sampler samp [[sampler(0)]]
   ) {
 
-    return float4(in.color, 1);
+    float2 uv = in.uv;
+
+    return spriteTex.sample(samp, uv);
   }
 }

@@ -1,5 +1,5 @@
 //
-//  MTLQuestFour.swift
+//  MTLQuestCheckerboard.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/15/25.
@@ -11,7 +11,7 @@ import PLTMetal
 
 /// Checkerboard pattern
 /// Use fmod() on UVs to alternate colors. Builds pattern logic.
-struct MTLQuestFour: UIViewRepresentable {
+struct MTLQuestCheckerboard: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -34,7 +34,7 @@ struct MTLQuestFour: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestFour {
+extension MTLQuestCheckerboard {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
@@ -122,7 +122,7 @@ extension MTLQuestFour {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestFour.self)
+        namespace: String(describing: MTLQuestCheckerboard.self)
       )
     }
   }

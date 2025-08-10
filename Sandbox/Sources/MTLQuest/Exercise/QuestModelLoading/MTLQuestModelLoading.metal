@@ -1,7 +1,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-namespace MTLQuestNine {
+namespace MTLQuestModelLoading {
   struct SceneUniforms {
     float4x4 mvp;
     float4x4 model;

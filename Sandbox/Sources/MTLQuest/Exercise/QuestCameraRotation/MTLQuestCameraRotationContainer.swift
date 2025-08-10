@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MTLQuestTenContainer: View {
+struct MTLQuestCameraRotationContainer: View {
   @State private var showPanel = false
   @State private var yaw: Float = 0
   @State private var pitch: Float = 0
@@ -10,7 +10,7 @@ struct MTLQuestTenContainer: View {
   
   var body: some View {
     ZStack(alignment: .bottom) {
-      MTLQuestTen(
+      MTLQuestCameraRotation(
         exercise: exercise,
         yaw: yaw,
         pitch: pitch,

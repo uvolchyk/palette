@@ -1,22 +1,23 @@
 //
-//  MTLQuestTwo.metal
+//  MTLQuestCheckerboard.metal
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/13/25.
+//  Created by Uladzislau Volchyk on 7/15/25.
 //
 
 #include <metal_stdlib>
+#include <metal_math>
 
 using namespace metal;
 
-namespace MTLQuestTwo {
+namespace MTLQuestCheckerboard {
   struct VertexIn {
     float4 position  [[attribute(0)]];
     float3 color     [[attribute(1)]];
   };
 
   struct VertexOut {
-    float4 position [[position]];
+    float4 position [[position]]; // screen pixels
     float3 color;
   };
 
@@ -31,14 +32,17 @@ namespace MTLQuestTwo {
   }
 
   [[fragment]] half4 funFragment(
-    VertexOut in [[stage_in]],
-    constant float &time [[buffer(1)]]
+    VertexOut in [[stage_in]]
   ) {
-    half3 rgb = half3(in.color);
+    // quantisation
+    // 100 pixels per quant
+    const float edge = 100.0;
 
-    rgb.r += sin(time);
-    rgb.g -= cos(time);
+    float2 uv = floor(in.position.xy / edge);
 
-    return half4(rgb, 1.0);
+    // odd-even mask
+    float mask = fmod(uv.x + uv.y, 2.0);
+
+    return half4(half3(1.0, 0.0, 0.5) * mask, 1.0);
   }
 }

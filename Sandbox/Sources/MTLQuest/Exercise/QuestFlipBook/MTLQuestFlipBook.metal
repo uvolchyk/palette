@@ -1,5 +1,5 @@
 //
-//  MTLQuestFive.metal
+//  MTLQuestFlipBook.metal
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/15/25.
@@ -10,7 +10,7 @@
 
 using namespace metal;
 
-namespace MTLQuestFive {
+namespace MTLQuestFlipBook {
   struct FlipbookUniforms
   {
       float     time;        // seconds, monotonic

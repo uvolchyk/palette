@@ -1,4 +1,4 @@
-//  MTLQuestNine.swift
+//  MTLQuestModelLoading.swift
 //  Sandbox
 //
 //  Created by Assistant on 7/25/25.
@@ -13,7 +13,7 @@ import PLTMath
 /// https://www.opengl-tutorial.org/beginners-tutorials/tutorial-8-basic-shading/
 /// Loads and displays Suzanne using MetalKit's MDLAsset+MTKMesh APIs.
 /// Also studies the work with basic shading (Lambertian Reflection in this case, see the shaders code for more)
-struct MTLQuestNine: UIViewRepresentable {
+struct MTLQuestModelLoading: UIViewRepresentable {
   let exercise: MTLQuestExercise
   
   func makeUIView(context: Context) -> MTKView {
@@ -33,7 +33,7 @@ struct MTLQuestNine: UIViewRepresentable {
   func updateUIView(_ view: MTKView, context: Context) {}
 }
 
-extension MTLQuestNine {
+extension MTLQuestModelLoading {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
@@ -132,7 +132,7 @@ extension MTLQuestNine {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestNine.self)
+        namespace: String(describing: MTLQuestModelLoading.self)
       )
 
       let url = Bundle.main.url(forResource: "suzanne", withExtension: "obj")!

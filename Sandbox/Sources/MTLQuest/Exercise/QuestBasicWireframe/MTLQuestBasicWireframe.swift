@@ -1,5 +1,5 @@
 //
-//  MTLQuestThree.swift
+//  MTLQuestBasicWireframe.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/14/25.
@@ -12,7 +12,7 @@ import PLTMetal
 /// https://tchayen.github.io/posts/wireframes-with-barycentric-coordinates
 /// Wireframe overlay (no geometry shader)
 /// Use step() on barycentric coords (passed as separate attribute) to darken edges. Sharpens thinking about fragments vs. vertices.
-struct MTLQuestThree: UIViewRepresentable {
+struct MTLQuestBasicWireframe: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -39,7 +39,7 @@ struct MTLQuestThree: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestThree {
+extension MTLQuestBasicWireframe {
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
   }
@@ -135,7 +135,7 @@ extension MTLQuestThree {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestThree.self)
+        namespace: String(describing: MTLQuestBasicWireframe.self)
       )
     }
     

@@ -1,5 +1,5 @@
 //
-//  MTLQuestTen.metal
+//  MTLQuestCameraRotation.metal
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/26/25.
@@ -8,7 +8,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-namespace MTLQuestTen {
+namespace MTLQuestCameraRotation {
   struct SceneUniforms {
     float4x4 mvp;
     float4x4 model;

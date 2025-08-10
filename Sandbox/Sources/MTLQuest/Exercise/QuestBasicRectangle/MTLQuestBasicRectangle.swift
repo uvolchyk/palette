@@ -1,5 +1,5 @@
 //
-//  MTLQuestTwo.swift
+//  MTLQuestBasicRectangle.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/13/25.
@@ -14,7 +14,7 @@ import PLTMetal
 ///
 /// Time-based color pulse
 /// Add a uniform float time and use sin(time) to modulate color. Introduces uniforms and time.
-struct MTLQuestTwo: UIViewRepresentable {
+struct MTLQuestBasicRectangle: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -41,7 +41,7 @@ struct MTLQuestTwo: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestTwo {
+extension MTLQuestBasicRectangle {
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
   }
@@ -137,7 +137,7 @@ extension MTLQuestTwo {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestTwo.self)
+        namespace: String(describing: MTLQuestBasicRectangle.self)
       )
     }
     

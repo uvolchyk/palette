@@ -1,5 +1,5 @@
 //
-//  MTLQuestOne.swift
+//  MTLQuestBasicTriangle.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/13/25.
@@ -15,7 +15,7 @@ import PLTMath
 ///
 /// Per-vertex colors
 /// Pass a color attribute per vertex and interpolate it in the fragment shader. Teaches varying inputs and barycentric interpolation.
-struct MTLQuestOne: UIViewRepresentable {
+struct MTLQuestBasicTriangle: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -38,7 +38,7 @@ struct MTLQuestOne: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestOne {
+extension MTLQuestBasicTriangle {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
@@ -125,7 +125,7 @@ extension MTLQuestOne {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestOne.self)
+        namespace: String(describing: MTLQuestBasicTriangle.self)
       )
     }
   }

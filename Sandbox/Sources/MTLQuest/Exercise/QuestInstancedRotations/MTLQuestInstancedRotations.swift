@@ -167,7 +167,7 @@ extension MTLQuestInstancedRotations {
       )
     }()
     
-    let mdlObjects: [MDLObjectParser]
+    let mdlObject: MDLObjectParser
     
     private var instanceTransforms: [Transform] = []
     private var instanceBuffer: MTLBuffer?
@@ -260,52 +260,50 @@ extension MTLQuestInstancedRotations {
         let renderEncoder = buffer
           .makeRenderCommandEncoder(descriptor: viewRenderDescriptor)
         
-        for mdlObject in mdlObjects {
-          let m_model: float4x4 = matrix_identity_float4x4
-          
-          let mvp = m_perspective * m_view * m_model
-          var uniforms = SceneUniforms(
-            mvp: mvp,
-            model: m_model
-          )
-          
-          renderEncoder?
-            .configure { encoder in
-              encoder.setRenderPipelineState(renderPipeline_objects)
-              encoder.setDepthStencilState(
-                device.makeDepthStencilState(
-                  descriptor: MTLDepthStencilDescriptor().configure {
-                    $0.depthCompareFunction = .less
-                    $0.isDepthWriteEnabled = true
-                  }
-                )!
-              )
-              encoder.setVertexBuffer(
-                mdlObject.mesh.vertexBuffers[0].buffer,
-                offset: mdlObject.mesh.vertexBuffers[0].offset,
-                index: 0
-              )
-              
-              encoder.setVertexBytes(
-                &uniforms,
-                length: MemoryLayout<SceneUniforms>.stride,
-                index: 1
-              )
-              
-              // Set per-instance model matrix buffer at index 2
-              encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 2)
-              
-              // Draw instanced primitives
-              encoder.drawIndexedPrimitives(
-                type: mdlObject.submesh.primitiveType,
-                indexCount: mdlObject.submesh.indexCount,
-                indexType: mdlObject.submesh.indexType,
-                indexBuffer: mdlObject.submesh.indexBuffer.buffer,
-                indexBufferOffset: mdlObject.submesh.indexBuffer.offset,
-                instanceCount: instanceTransforms.count
-              )
-            }
-        }
+        let m_model: float4x4 = matrix_identity_float4x4
+        
+        let mvp = m_perspective * m_view * m_model
+        var uniforms = SceneUniforms(
+          mvp: mvp,
+          model: m_model
+        )
+        
+        renderEncoder?
+          .configure { encoder in
+            encoder.setRenderPipelineState(renderPipeline_objects)
+            encoder.setDepthStencilState(
+              device.makeDepthStencilState(
+                descriptor: MTLDepthStencilDescriptor().configure {
+                  $0.depthCompareFunction = .less
+                  $0.isDepthWriteEnabled = true
+                }
+              )!
+            )
+            encoder.setVertexBuffer(
+              mdlObject.mesh.vertexBuffers[0].buffer,
+              offset: mdlObject.mesh.vertexBuffers[0].offset,
+              index: 0
+            )
+            
+            encoder.setVertexBytes(
+              &uniforms,
+              length: MemoryLayout<SceneUniforms>.stride,
+              index: 1
+            )
+            
+            // Set per-instance model matrix buffer at index 2
+            encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 2)
+            
+            // Draw instanced primitives
+            encoder.drawIndexedPrimitives(
+              type: mdlObject.submesh.primitiveType,
+              indexCount: mdlObject.submesh.indexCount,
+              indexType: mdlObject.submesh.indexType,
+              indexBuffer: mdlObject.submesh.indexBuffer.buffer,
+              indexBufferOffset: mdlObject.submesh.indexBuffer.offset,
+              instanceCount: instanceTransforms.count
+            )
+          }
         
         /// -------- gizmo --------
         //        let renderPD_gizmo = MTLRenderPipelineDescriptor().configure {
@@ -406,12 +404,10 @@ extension MTLQuestInstancedRotations {
       self.automaticRotation = automaticRotation
       
       let modelURL = Bundle.main.url(forResource: "pikachu", withExtension: "obj")!
-      self.mdlObjects = [
-        MDLObjectParser(
-          modelURL: modelURL,
-          device: device
-        )
-      ]
+      self.mdlObject = MDLObjectParser(
+        modelURL: modelURL,
+        device: device
+      )
       
       self.vertexDescriptor = MTLVertexDescriptor()
         .configure {

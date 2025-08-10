@@ -1,17 +1,17 @@
 //
-//  MTLQuestSeven.swift
+//  MTLQuestBasicMVP.swift
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/21/25.
+//  Created by Uladzislau Volchyk on 7/17/25.
 //
 
 import SwiftUI
 import MetalKit
 import PLTMetal
 
-/// https://www.opengl-tutorial.org/beginners-tutorials/tutorial-4-a-colored-cube/
-/// Working with 3D, displaying a coloured cube, animating it's rotation
-struct MTLQuestSeven: UIViewRepresentable {
+/// https://www.opengl-tutorial.org/beginners-tutorials/tutorial-3-matrices/
+/// This quest studies the model-view-projection (MVP) matrix.
+struct MTLQuestBasicMVP: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -23,8 +23,6 @@ struct MTLQuestSeven: UIViewRepresentable {
       $0.clearColor = MTLClearColorMake(0, 0, 0, 1)
       $0.colorPixelFormat = .rgba8Unorm
       $0.delegate = coordinator.renderer
-      $0.depthStencilPixelFormat = .depth32Float
-      coordinator.mtkView = $0
     }
   }
 
@@ -34,17 +32,13 @@ struct MTLQuestSeven: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestSeven {
+extension MTLQuestBasicMVP {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
   }
 
   final class Coordinator {
-    private var rotationAngle: Float = 0
-    private var displayLink: CADisplayLink?
-    weak var mtkView: MTKView?
-
     struct SceneUniforms {
         var mvp        : float4x4
     }
@@ -81,48 +75,28 @@ extension MTLQuestSeven {
         let trianglePassDescriptor = MTLRenderPipelineDescriptor()
           .configure {
             $0.vertexDescriptor = vDesc
-            $0.vertexFunction = try! library.funVertex
-            $0.fragmentFunction = try! library.funFragment
+            $0.vertexFunction = try! library.function(named: "funVertex")
+            $0.fragmentFunction = try! library.function(named: "funFragment")
             $0.colorAttachments[0].pixelFormat = view.colorPixelFormat
-            $0.depthAttachmentPixelFormat = .depth32Float
           }
 
         let pipeline = try! device.makeRenderPipelineState(descriptor: trianglePassDescriptor)
 
         // 2. Creating some data for the brush (paints)
+
+        // Convert sprite size from pixels to Normalized-Device Coordinates (-1 … +1)
         let viewSize = view.drawableSize
 
-        let indices: [UInt16] = [
-          0, 1, 3,
-          2, 1, 3,
-          0, 4, 3,
-          7, 4, 3,
-          0, 1, 4,
-          5, 1, 4,
-          3, 2, 7,
-          6, 2, 7,
-          1, 5, 2,
-          6, 5, 2,
-          4, 5, 7,
-          6, 5, 7,
-        ]
-
-        let indexBuffer = device.makeBuffer(
-          bytes: indices,
-          length: MemoryLayout<UInt16>.stride * indices.count,
-          options: []
-        )!
+        // Half-extent in NDC
+        let hx = Float(1.0)
+        let hy = Float(1.0)
 
         // x y z w r g b
         let quad: [Float] = [
-          -1, -1, -1, 1, 1, 0, 0, // bln
-          -1,  1, -1, 1, 0, 1, 0, // tln
-           1,  1, -1, 1, 0, 0, 1, // trn
-           1, -1, -1, 1, 1, 0, 1, // brn
-          -1, -1,  1, 1, 0, 1, 1, // blf
-          -1,  1,  1, 1, 1, 1, 0, // tlf
-           1,  1,  1, 1, 1, 1, 1, // trf
-           1, -1,  1, 1, 1, 1, 1, // brf
+          -1,  -1, 0, 1, 1, 0, 0,   // BL
+          -1,   1, 0, 1, 0, 1, 0,   // TL
+           1,  -1, 0, 1, 0, 0, 1,   // BR
+           1,   1, 0, 1, 1, 0, 1,    // TR
         ]
         
         let vertexBuffer = device.makeBuffer(
@@ -141,33 +115,26 @@ extension MTLQuestSeven {
 //        let m_perspective = matrix_identity_float4x4
 
         let m_view = lookAt(
-          eye: SIMD3<Float>(0, 8, 8),
+          eye: SIMD3<Float>(0, 0, 4),
           center: SIMD3<Float>(0, 0, 0),
-          up: SIMD3<Float>(0, 3, 0)
+          up: SIMD3<Float>(0, -1, 0)
         )
 //        let m_view = matrix_identity_float4x4
 
 //        let m_model = float4x4(1.0)
 //        let m_model = float4x4(diagonal: SIMD4<Float>(repeating: 1))
-        let m_model = rotationMatrixY(angleRadians: rotationAngle)
+        let m_model = matrix_identity_float4x4
 
         let mvp = m_perspective * m_view * m_model
 
         var uniforms = SceneUniforms(
           mvp: mvp
         )
-        
-        let depthDescriptor = MTLDepthStencilDescriptor()
-        depthDescriptor.depthCompareFunction = .less      // Like GL_LESS
-        depthDescriptor.isDepthWriteEnabled = true
-
-        let depthState = device.makeDepthStencilState(descriptor: depthDescriptor)!
 
         buffer
           .makeRenderCommandEncoder(descriptor: viewRenderDescriptor)?
           .configure { [unowned self] encoder in
             encoder.setRenderPipelineState(pipeline)
-            encoder.setDepthStencilState(depthState)
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(
               &uniforms,
@@ -175,12 +142,10 @@ extension MTLQuestSeven {
               index: 1
             )
 
-            encoder.drawIndexedPrimitives(
-              type: .triangle,
-              indexCount: indices.count,
-              indexType: .uint16,
-              indexBuffer: indexBuffer,
-              indexBufferOffset: 0
+            encoder.drawPrimitives(
+              type: .triangleStrip,
+              vertexStart: 0,
+              vertexCount: 4
             )
           }
           .endEncoding()
@@ -196,22 +161,8 @@ extension MTLQuestSeven {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestSeven.self)
+        namespace: String(describing: MTLQuestBasicMVP.self)
       )
-      self.displayLink = CADisplayLink(target: self, selector: #selector(updateRotation))
-      self.displayLink?.add(to: .main, forMode: .default)
-    }
-
-    deinit {
-      displayLink?.invalidate()
-    }
-
-    @objc private func updateRotation() {
-        rotationAngle += 0.01 // Adjust rotation speed as desired
-        if rotationAngle > 2 * .pi {
-            rotationAngle -= 2 * .pi
-        }
-        mtkView?.setNeedsDisplay()
     }
 
     func perspectiveMatrix(
@@ -254,17 +205,6 @@ extension MTLQuestSeven {
         SIMD4<Float>(xAxis.y, yAxis.y, zAxis.y, 0),
         SIMD4<Float>(xAxis.z, yAxis.z, zAxis.z, 0),
         SIMD4<Float>(translation.x, translation.y, translation.z, 1)
-      )
-    }
-    
-    func rotationMatrixY(angleRadians: Float) -> simd_float4x4 {
-      let c = cos(angleRadians)
-      let s = sin(angleRadians)
-      return simd_float4x4(
-        SIMD4<Float>( c, 0,  s, 0),
-        SIMD4<Float>( 0, 1,  0, 0),
-        SIMD4<Float>(-s, 0,  c, 0),
-        SIMD4<Float>( 0, 0,  0, 1)
       )
     }
   }

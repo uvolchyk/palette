@@ -1,8 +1,8 @@
 //
-//  MTLQuestSix.metal
+//  MTLQuestBasic3D.metal
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/17/25.
+//  Created by Uladzislau Volchyk on 7/21/25.
 //
 
 #include <metal_stdlib>
@@ -10,7 +10,7 @@
 
 using namespace metal;
 
-namespace MTLQuestSix {
+namespace MTLQuestBasic3D {
   struct SceneUniforms
   {
       float4x4     mvp;

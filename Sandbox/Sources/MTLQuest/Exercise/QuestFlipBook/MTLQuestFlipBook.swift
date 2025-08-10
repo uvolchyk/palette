@@ -1,5 +1,5 @@
 //
-//  MTLQuestFive.swift
+//  MTLQuestFlipBook.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/15/25.
@@ -13,7 +13,7 @@ import PLTMath
 /// https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator
 /// Flipbook animation
 /// Animate through sprite sheet frames by offsetting UVs with floor(time * fps). Explores integer math and UV wrapping.
-struct MTLQuestFive: UIViewRepresentable {
+struct MTLQuestFlipBook: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -34,7 +34,7 @@ struct MTLQuestFive: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestFive {
+extension MTLQuestFlipBook {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
@@ -193,7 +193,7 @@ extension MTLQuestFive {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestFive.self)
+        namespace: String(describing: MTLQuestFlipBook.self)
       )
 
       self.atlas    = try! Self.loadAtlas(device: device, named: "wizard")

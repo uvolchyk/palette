@@ -1,5 +1,5 @@
 //
-//  MTLQuestEight.swift
+//  MTLQuestUVMapping.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/24/25.
@@ -14,7 +14,7 @@ import PLTMetal
 ///
 /// Continue working with 3D, this time applying a texture on a cube.
 /// Study UV mapping
-struct MTLQuestEight: UIViewRepresentable {
+struct MTLQuestUVMapping: UIViewRepresentable {
   let exercise: MTLQuestExercise
 
   func makeUIView(context: Context) -> MTKView {
@@ -37,7 +37,7 @@ struct MTLQuestEight: UIViewRepresentable {
   ) {}
 }
 
-extension MTLQuestEight {
+extension MTLQuestUVMapping {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise)
@@ -235,7 +235,7 @@ extension MTLQuestEight {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestEight.self)
+        namespace: String(describing: MTLQuestUVMapping.self)
       )
       self.atlas    = try! Self.loadTexture(device: device)
       let sampDesc  = MTLSamplerDescriptor()

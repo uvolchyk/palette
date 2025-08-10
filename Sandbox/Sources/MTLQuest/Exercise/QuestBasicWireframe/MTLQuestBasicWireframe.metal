@@ -9,7 +9,7 @@
 
 using namespace metal;
 
-namespace MTLQuestThree {
+namespace MTLQuestBasicWireframe {
   struct VertexIn {
     float4 position  [[attribute(0)]];
     float3 bary      [[attribute(1)]];

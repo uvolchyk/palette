@@ -1,5 +1,5 @@
 //
-//  MTLQuestTen.swift
+//  MTLQuestCameraRotation.swift
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/26/25.
@@ -15,7 +15,7 @@ import PLTMath
 /// Working with gestures (scale, pitch, yaw), studying spherical coordinates.
 /// Displaying gizmo.
 /// 'head' now represents roll angle around Z axis, not a distance.
-struct MTLQuestTen: UIViewRepresentable {
+struct MTLQuestCameraRotation: UIViewRepresentable {
   let exercise: MTLQuestExercise
   var yaw: Float = 0
   var pitch: Float = 0
@@ -52,7 +52,7 @@ struct MTLQuestTen: UIViewRepresentable {
   }
 }
 
-extension MTLQuestTen {
+extension MTLQuestCameraRotation {
   @MainActor
   func makeCoordinator() -> Coordinator {
     Coordinator(exercise: exercise, yaw: yaw, pitch: pitch, head: head)
@@ -241,7 +241,7 @@ extension MTLQuestTen {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
-        namespace: String(describing: MTLQuestTen.self)
+        namespace: String(describing: MTLQuestCameraRotation.self)
       )
       
       self.externalYaw = { yaw }

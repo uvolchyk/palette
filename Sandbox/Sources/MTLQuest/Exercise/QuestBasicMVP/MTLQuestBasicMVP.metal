@@ -1,8 +1,8 @@
 //
-//  MTLQuestEight.metal
+//  MTLQuestBasicMVP.metal
 //  Sandbox
 //
-//  Created by Uladzislau Volchyk on 7/24/25.
+//  Created by Uladzislau Volchyk on 7/17/25.
 //
 
 #include <metal_stdlib>
@@ -10,7 +10,7 @@
 
 using namespace metal;
 
-namespace MTLQuestEight {
+namespace MTLQuestBasicMVP {
   struct SceneUniforms
   {
       float4x4     mvp;
@@ -18,12 +18,12 @@ namespace MTLQuestEight {
 
   struct VertexIn {
     float4 position  [[attribute(0)]];
-    float2 uv  [[attribute(1)]];
+    float3 color  [[attribute(1)]];
   };
 
   struct VertexOut {
     float4 position [[position]]; // screen pixels
-    float2 uv;
+    float3 color;
   };
 
   [[vertex]] VertexOut funVertex(
@@ -32,18 +32,16 @@ namespace MTLQuestEight {
   ) {
     return VertexOut {
       .position = uniforms.mvp * in.position,
-      .uv = in.uv,
+      .color = in.color,
     };
   }
 
   [[fragment]] float4 funFragment(
-    VertexOut in [[stage_in]],
-    texture2d<float>       spriteTex  [[texture(0)]],
-    sampler samp [[sampler(0)]]
+    VertexOut in [[stage_in]]
+//    texture2d<float>       spriteTex  [[texture(0)]],
+//    sampler samp [[sampler(0)]],
   ) {
 
-    float2 uv = in.uv;
-
-    return spriteTex.sample(samp, uv);
+    return float4(in.color, 1);
   }
 }

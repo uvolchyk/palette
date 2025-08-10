@@ -1,5 +1,5 @@
 //
-//  MTLQuestOne.metal
+//  MTLQuestBasicTriangle.metal
 //  Sandbox
 //
 //  Created by Uladzislau Volchyk on 7/13/25.
@@ -9,7 +9,7 @@
 
 using namespace metal;
 
-namespace MTLQuestOne {
+namespace MTLQuestBasicTriangle {
   struct VertexIn {
     float4 position  [[attribute(0)]];
     float3 color     [[attribute(1)]];
