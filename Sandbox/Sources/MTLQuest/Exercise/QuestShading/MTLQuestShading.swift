@@ -19,6 +19,7 @@ struct MTLQuestShading: UIViewRepresentable {
   @Binding var automaticRotation: Bool
   @Binding var lightPosition: SIMD3<Float>
   @Binding var shadingModel: MTLQuestShadingModel
+  @Binding var lightingModel: MTLQuestLightingModel
   
   func makeUIView(context: Context) -> MTKView {
     let coordinator = context.coordinator
@@ -50,7 +51,8 @@ struct MTLQuestShading: UIViewRepresentable {
     context.coordinator.updateFromParent(
       yaw: yaw, pitch: pitch, head: head,
       automaticRotation: automaticRotation,
-      shadingModel: shadingModel
+      shadingModel: shadingModel,
+      lightingModel: lightingModel
     )
   }
   
@@ -116,14 +118,15 @@ extension MTLQuestShading {
       head: $head,
       automaticRotation: $automaticRotation,
       lightPosition: $lightPosition,
-      shadingModel: $shadingModel
+      shadingModel: $shadingModel,
+      lightingModel: $lightingModel
     )
   }
   
   final class Coordinator {
     private var rotationAngle: Float = 0
     private var displayLink: CADisplayLink?
-    private var cameraDistance: Float = 140.0
+    private var cameraDistance: Float = 50.0
     private var cameraX: Float = 0.0
     private var cameraY: Float = 0.0
     
@@ -184,6 +187,7 @@ extension MTLQuestShading {
     
     // New binding for shading model
     private var shadingModel: Binding<MTLQuestShadingModel>
+    private var lightingModel: Binding<MTLQuestLightingModel>
     
     /// Note: The vertex Metal function must accept a buffer argument ([[buffer(2)]])
     /// for model matrix per-instance, and use instance_id to fetch it for each instance.
@@ -300,6 +304,9 @@ extension MTLQuestShading {
             // This can be used in the shader to select shading logic.
             var shadingModelRawValue = shadingModel.wrappedValue.rawValue
             encoder.setFragmentBytes(&shadingModelRawValue, length: MemoryLayout<Int>.stride, index: 2)
+
+            var lightingModelRawValue = lightingModel.wrappedValue.rawValue
+            encoder.setFragmentBytes(&lightingModelRawValue, length: MemoryLayout<Int>.stride, index: 3)
             
             // Set per-instance model matrix buffer at index 2
             // Note: Since index 2 is used here for instance buffer, 
@@ -465,7 +472,8 @@ extension MTLQuestShading {
       head: Binding<Float>,
       automaticRotation: Binding<Bool>,
       lightPosition: Binding<SIMD3<Float>>,
-      shadingModel: Binding<MTLQuestShadingModel>
+      shadingModel: Binding<MTLQuestShadingModel>,
+      lightingModel: Binding<MTLQuestLightingModel>
     ) {
       self.exercise = exercise
       self.library = .init(
@@ -482,6 +490,7 @@ extension MTLQuestShading {
       self.lightPosition = lightPosition
       
       self.shadingModel = shadingModel
+      self.lightingModel = lightingModel
       
       let modelURL = Bundle.main.url(forResource: "pikachu", withExtension: "obj")!
       self.mdlObject = MDLObjectParser(
@@ -622,7 +631,8 @@ extension MTLQuestShading {
     func updateFromParent(
       yaw: Float, pitch: Float, head: Float,
       automaticRotation: Bool,
-      shadingModel: MTLQuestShadingModel
+      shadingModel: MTLQuestShadingModel,
+      lightingModel: MTLQuestLightingModel
     ) {
       // Update internal state if needed, currently just triggers redraw
       mtkView?.setNeedsDisplay()

@@ -10,6 +10,7 @@ import SwiftUI
 enum MTLQuestShadingModel: Int, CaseIterable, Identifiable {
   case gooch = 0
   case lambertianReflection
+  case bandedLighting
   
   var id: Self { self }
   
@@ -17,6 +18,23 @@ enum MTLQuestShadingModel: Int, CaseIterable, Identifiable {
     switch self {
     case .gooch: "Gooch"
     case .lambertianReflection: "Lambertian Reflection"
+    case .bandedLighting: "Banded Lighting"
+    }
+  }
+}
+
+enum MTLQuestLightingModel: Int, CaseIterable, Identifiable {
+  case point
+  case spotlight
+  case directional
+
+  var id: Self { self }
+
+  var displayName: String {
+    switch self {
+    case .point: "Point"
+    case .spotlight: "Spotlight"
+    case .directional: "Directional"
     }
   }
 }
@@ -34,6 +52,7 @@ struct MTLQuestShadingContainer: View {
   @State private var automaticRotation: Bool = false
   
   @State private var shadingModel: MTLQuestShadingModel = .lambertianReflection
+  @State private var lightingModel: MTLQuestLightingModel = .point
   
   let exercise: MTLQuestExercise
   
@@ -46,7 +65,8 @@ struct MTLQuestShadingContainer: View {
         head: $head,
         automaticRotation: $automaticRotation,
         lightPosition: $lightPosition,
-        shadingModel: $shadingModel
+        shadingModel: $shadingModel,
+        lightingModel: $lightingModel
       )
       .edgesIgnoringSafeArea(.all)
       
@@ -68,56 +88,63 @@ struct MTLQuestShadingContainer: View {
           }
         }
         .pickerStyle(.segmented)
-        
-        Text("Camera Controls")
-          .font(.headline)
-        
-        // Toggle for automatic rotation
-        Toggle("Automatic Rotation", isOn: $automaticRotation)
-        
-        Group {
-          VStack(alignment: .leading) {
-            HStack {
-              Text("Yaw (Oy - Green): \(String(format: "%.2f", yaw))")
-              Button(
-                action: { yaw = 0 },
-                label: { Image(systemName: "arrow.clockwise") }
-              )
-            }
-            Slider(value: Binding(
-              get: { yaw },
-              set: { yaw = $0 }
-            ), in: -Float.pi ... Float.pi, step: 0.01)
-          }
-          VStack(alignment: .leading) {
-            HStack {
-              Text("Pitch (Ox - Red): \(String(format: "%.2f", pitch))")
-              Button(
-                action: { pitch = 0 },
-                label: { Image(systemName: "arrow.clockwise") }
-              )
-            }
-            Slider(value: Binding(
-              get: { pitch },
-              set: { pitch = $0 }
-            ), in: -Float.pi ... Float.pi, step: 0.01)
-          }
-          VStack(alignment: .leading) {
-            HStack {
-              Text("Head (Oz - Blue): \(String(format: "%.2f", head))")
-              Button(
-                action: { head = 0 },
-                label: {
-                  Image(systemName: "arrow.clockwise")
-                }
-              )
-            }
-            Slider(value: Binding(
-              get: { head },
-              set: { head = $0 }
-            ), in: -Float.pi ... Float.pi, step: 0.01)
+
+        Picker("Lighting Model", selection: $lightingModel) {
+          ForEach(MTLQuestLightingModel.allCases) { model in
+            Text(model.displayName).tag(model)
           }
         }
+        .pickerStyle(.segmented)
+        
+//        Text("Camera Controls")
+//          .font(.headline)
+//        
+//        // Toggle for automatic rotation
+//        Toggle("Automatic Rotation", isOn: $automaticRotation)
+//        
+//        Group {
+//          VStack(alignment: .leading) {
+//            HStack {
+//              Text("Yaw (Oy - Green): \(String(format: "%.2f", yaw))")
+//              Button(
+//                action: { yaw = 0 },
+//                label: { Image(systemName: "arrow.clockwise") }
+//              )
+//            }
+//            Slider(value: Binding(
+//              get: { yaw },
+//              set: { yaw = $0 }
+//            ), in: -Float.pi ... Float.pi, step: 0.01)
+//          }
+//          VStack(alignment: .leading) {
+//            HStack {
+//              Text("Pitch (Ox - Red): \(String(format: "%.2f", pitch))")
+//              Button(
+//                action: { pitch = 0 },
+//                label: { Image(systemName: "arrow.clockwise") }
+//              )
+//            }
+//            Slider(value: Binding(
+//              get: { pitch },
+//              set: { pitch = $0 }
+//            ), in: -Float.pi ... Float.pi, step: 0.01)
+//          }
+//          VStack(alignment: .leading) {
+//            HStack {
+//              Text("Head (Oz - Blue): \(String(format: "%.2f", head))")
+//              Button(
+//                action: { head = 0 },
+//                label: {
+//                  Image(systemName: "arrow.clockwise")
+//                }
+//              )
+//            }
+//            Slider(value: Binding(
+//              get: { head },
+//              set: { head = $0 }
+//            ), in: -Float.pi ... Float.pi, step: 0.01)
+//          }
+//        }
         
         Text("Light Position (xyz)")
           .font(.subheadline)
@@ -147,3 +174,4 @@ struct MTLQuestShadingContainer: View {
     }
   }
 }
+

@@ -12,6 +12,13 @@ namespace MTLQuestShading {
   enum ShadingModel {
     Gooch = 0,
     LambertianReflection = 1,
+    BandedLighting = 2,
+  };
+
+  enum LightingModel {
+    Point = 0,
+    Spotlight = 1,
+    Directional = 2,
   };
 
   float3 shadingGooch(float3 normal, float3 lightDirection, float3 eyeDirection) {
@@ -44,12 +51,64 @@ namespace MTLQuestShading {
     // Diffusing the color
     float3 diffuse = color * diff;
 
-    // A hack in order to simulate some indirect light and prevent completely black surface when not lit directly
-    float3 ambient = 0.4 * color;
+//    // A hack in order to simulate some indirect light and prevent completely black surface when not lit directly
+//    float3 ambient = 0.4 * color;
 
     // Final color of the pixel
-    return diffuse + ambient;
+    return diffuse;
   }
+
+  float3 shadingBandedLighting(
+    float3 normal,
+    float3 lightDirection,
+    float3 color
+  ) {
+    float NdotL = max(0.0, dot(normalize(normal), normalize(lightDirection)));
+
+    float steps = 6.0;
+    float q = floor(NdotL * steps + 0.5) / steps;
+    float3 final = color * (q + 0.4);
+    return final;
+  }
+
+  float shadePoint(float3 pointLocation, float3 surfaceLocation) {
+    float range = 30.0;
+    float d = length(surfaceLocation - pointLocation);
+
+    if (d > 30.0) { return 0.0; }
+
+    float intensity = 70;
+
+    float attenuation = intensity / pow(max(d, 0.001), 2);
+
+    float x = 1.0 - d / range;
+    float smooth = x * x * (3.0 - 2.0 * x); // smoothstep
+
+    return attenuation * smooth;
+  }
+
+  float spotlightFactor(
+    float3 lightPos,
+    float3 lightDir,
+    float3 surfacePos,
+    float innerAngle,
+    float outerAngle
+  ) {
+    float3 L = normalize(lightPos - surfacePos);
+    float3 D = normalize(lightDir);
+
+    // cos because the dot product is cos
+    float cosInner = cos(innerAngle);
+    float cosOuter = cos(outerAngle);
+
+    // calculate whether the surface is within the cone
+    float theta = dot(L, D);
+
+    // gradual attenuation from 1 in the centre to 0 outside the cone
+    // cosInner - cosOuter creates a cool gradient
+    return saturate((theta - cosOuter) / (cosInner - cosOuter));
+  }
+
 
   struct SceneUniforms {
     float4x4 mvp;
@@ -97,17 +156,44 @@ namespace MTLQuestShading {
   fragment float4 funFragment(
     VertexOut in [[stage_in]],
     constant float3 &lightPosition [[buffer(1)]],
-    constant int &shadingModel [[buffer(2)]]
+    constant int &shadingModel [[buffer(2)]],
+    constant int &lightingModel [[buffer(3)]]
   )
   {
-    float3 lightDir = normalize(lightPosition - in.worldPosition);
+    float3 lightDir = float3(1.0);
+
+    float attenuation = 1.0;
+    switch (LightingModel(lightingModel)) {
+      case Point:
+        lightDir = normalize(lightPosition - in.worldPosition);
+        attenuation = shadePoint(lightPosition, in.worldPosition);
+        break;
+      case Spotlight:
+        lightDir = normalize(float3(4.0, 3.0, 16.0));
+        attenuation = spotlightFactor(lightPosition, lightDir, in.worldPosition, 0.2, 0.25);
+        break;
+      case Directional:
+        lightDir = normalize(float3(4.0, 3.0, 16.0));
+        break;
+    };
+
+    float3 shade = 0.0;
 
     switch (ShadingModel(shadingModel)) {
     case Gooch:
-      return float4(shadingGooch(in.normal, lightDir, lightDir), 1.0);
+      shade = shadingGooch(in.normal, lightDir, lightDir);
+      break;
+
     case LambertianReflection:
-      return float4(shadingLambertianReflection(in.normal, lightDir, in.color), 1.0);
+      shade = shadingLambertianReflection(in.normal, lightDir, in.color);
+      break;
+
+    case BandedLighting:
+      shade = shadingBandedLighting(in.normal, lightDir, float3(0.5));
+      break;
     };
+
+    return float4(shade * attenuation + in.color * 0.1, 1.0);
   }
 
   struct GizmoVertexIn {
