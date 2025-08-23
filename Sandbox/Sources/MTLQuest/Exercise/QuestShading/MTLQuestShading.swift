@@ -17,9 +17,9 @@ struct MTLQuestShading: UIViewRepresentable {
   @Binding var pitch: Float
   @Binding var head: Float
   @Binding var automaticRotation: Bool
-  @Binding var lightPosition: SIMD3<Float>
+//  @Binding var lightPosition: SIMD3<Float>
   @Binding var shadingModel: MTLQuestShadingModel
-  @Binding var lightingModel: MTLQuestLightingModel
+  @Binding var lightingModelData: MTLQuestLightingModel
   
   func makeUIView(context: Context) -> MTKView {
     let coordinator = context.coordinator
@@ -52,7 +52,7 @@ struct MTLQuestShading: UIViewRepresentable {
       yaw: yaw, pitch: pitch, head: head,
       automaticRotation: automaticRotation,
       shadingModel: shadingModel,
-      lightingModel: lightingModel
+      lightingModelData: lightingModelData
     )
   }
   
@@ -117,9 +117,9 @@ extension MTLQuestShading {
       pitch: $pitch,
       head: $head,
       automaticRotation: $automaticRotation,
-      lightPosition: $lightPosition,
+//      lightPosition: $lightPosition,
       shadingModel: $shadingModel,
-      lightingModel: $lightingModel
+      lightingModelData: $lightingModelData
     )
   }
   
@@ -173,7 +173,6 @@ extension MTLQuestShading {
     let mdlObject: MDLObjectParser
     
     // --- New properties for light ---
-    private var lightPosition: Binding<SIMD3<Float>>
     let mdlLightObject: MDLObjectParser
     private var lightTransform: Transform
     
@@ -187,7 +186,7 @@ extension MTLQuestShading {
     
     // New binding for shading model
     private var shadingModel: Binding<MTLQuestShadingModel>
-    private var lightingModel: Binding<MTLQuestLightingModel>
+    private var lightingModelData: Binding<MTLQuestLightingModel>
     
     /// Note: The vertex Metal function must accept a buffer argument ([[buffer(2)]])
     /// for model matrix per-instance, and use instance_id to fetch it for each instance.
@@ -297,16 +296,40 @@ extension MTLQuestShading {
               index: 1
             )
             
-            var _lightPosition = lightPosition.wrappedValue
-            encoder.setFragmentBytes(&_lightPosition, length: MemoryLayout<SIMD3<Float>>.stride, index: 1)
+//            var _lightPosition = lightingModelData.wrappedValue.position
+//            encoder.setFragmentBytes(&_lightPosition, length: MemoryLayout<SIMD3<Float>>.stride, index: 1)
             
             // Pass shading model to the fragment shader as an Int (the rawValue)
             // This can be used in the shader to select shading logic.
             var shadingModelRawValue = shadingModel.wrappedValue.rawValue
-            encoder.setFragmentBytes(&shadingModelRawValue, length: MemoryLayout<Int>.stride, index: 2)
+            encoder.setFragmentBytes(&shadingModelRawValue, length: MemoryLayout<Int>.stride, index: 1)
 
-            var lightingModelRawValue = lightingModel.wrappedValue.rawValue
-            encoder.setFragmentBytes(&lightingModelRawValue, length: MemoryLayout<Int>.stride, index: 3)
+            var lightingModelRawValue = lightingModelData.wrappedValue.index
+            encoder.setFragmentBytes(&lightingModelRawValue, length: MemoryLayout<Int>.stride, index: 2)
+
+            switch lightingModelData.wrappedValue {
+            case .point(let data):
+              var _data = data
+              encoder.setFragmentBytes(
+                &_data,
+                length: MemoryLayout<MTLQuestLightingModel.PointData>.stride,
+                index: 3
+              )
+            case .spotlight(let data):
+              var _data = data
+              encoder.setFragmentBytes(
+                &_data,
+                length: MemoryLayout<MTLQuestLightingModel.SpotlightData>.stride,
+                index: 3
+              )
+            case .directional(let data):
+              var _data = data
+              encoder.setFragmentBytes(
+                &_data,
+                length: MemoryLayout<MTLQuestLightingModel.DirectionalData>.stride,
+                index: 3
+              )
+            }
             
             // Set per-instance model matrix buffer at index 2
             // Note: Since index 2 is used here for instance buffer, 
@@ -333,7 +356,7 @@ extension MTLQuestShading {
         /// -------- Light source visualization --------
         
         var lightT = lightTransform
-        lightT.translation = lightPosition.wrappedValue
+        lightT.translation = lightingModelData.wrappedValue.position
         lightT.scale = SIMD3<Float>(repeating: 0.5)
 
         let m_model_light = lightT.modelMatrix
@@ -372,7 +395,7 @@ extension MTLQuestShading {
             length: MemoryLayout<SceneUniforms>.stride,
             index: 1
           )
-          var _lightPosition = lightPosition.wrappedValue
+          var _lightPosition = lightingModelData.wrappedValue.position
           encoder.setFragmentBytes(&_lightPosition, length: MemoryLayout<SIMD3<Float>>.stride, index: 1)
           encoder.drawIndexedPrimitives(
             type: mdlLightObject.submesh.primitiveType,
@@ -471,9 +494,9 @@ extension MTLQuestShading {
       pitch: Binding<Float>,
       head: Binding<Float>,
       automaticRotation: Binding<Bool>,
-      lightPosition: Binding<SIMD3<Float>>,
+//      lightPosition: Binding<SIMD3<Float>>,
       shadingModel: Binding<MTLQuestShadingModel>,
-      lightingModel: Binding<MTLQuestLightingModel>
+      lightingModelData: Binding<MTLQuestLightingModel>
     ) {
       self.exercise = exercise
       self.library = .init(
@@ -487,10 +510,10 @@ extension MTLQuestShading {
       
       self.automaticRotation = automaticRotation
       
-      self.lightPosition = lightPosition
+//      self.lightPosition = lightPosition
       
       self.shadingModel = shadingModel
-      self.lightingModel = lightingModel
+      self.lightingModelData = lightingModelData
       
       let modelURL = Bundle.main.url(forResource: "pikachu", withExtension: "obj")!
       self.mdlObject = MDLObjectParser(
@@ -502,7 +525,10 @@ extension MTLQuestShading {
       let lightModelURL = Bundle.main.url(forResource: "sphere", withExtension: "obj")!
       self.mdlLightObject = MDLObjectParser(modelURL: lightModelURL, device: device)
       
-      self.lightTransform = Transform(translation: lightPosition.wrappedValue, scale: SIMD3<Float>(repeating: 3.0))
+      self.lightTransform = Transform(
+        translation: lightingModelData.wrappedValue.position,
+        scale: SIMD3<Float>(repeating: 3.0)
+      )
       
       self.vertexDescriptor = MTLVertexDescriptor()
         .configure {
@@ -632,7 +658,7 @@ extension MTLQuestShading {
       yaw: Float, pitch: Float, head: Float,
       automaticRotation: Bool,
       shadingModel: MTLQuestShadingModel,
-      lightingModel: MTLQuestLightingModel
+      lightingModelData: MTLQuestLightingModel
     ) {
       // Update internal state if needed, currently just triggers redraw
       mtkView?.setNeedsDisplay()

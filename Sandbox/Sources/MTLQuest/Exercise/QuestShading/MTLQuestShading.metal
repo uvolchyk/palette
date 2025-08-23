@@ -21,6 +21,21 @@ namespace MTLQuestShading {
     Directional = 2,
   };
 
+  struct LightingPointData {
+    float3 position;
+  };
+
+  struct LightingSpotlightData {
+    float3 position;
+    float3 direction;
+    float coneAngle;
+  };
+
+  struct LightingDirectionalData {
+    float3 direction;
+    float3 position;
+  };
+
   float3 shadingGooch(float3 normal, float3 lightDirection, float3 eyeDirection) {
     float NdotL = dot(normalize(normal), lightDirection);
 
@@ -155,26 +170,32 @@ namespace MTLQuestShading {
 
   fragment float4 funFragment(
     VertexOut in [[stage_in]],
-    constant float3 &lightPosition [[buffer(1)]],
-    constant int &shadingModel [[buffer(2)]],
-    constant int &lightingModel [[buffer(3)]]
-  )
-  {
+    constant int &shadingModel [[buffer(1)]],
+    constant int &lightingModel [[buffer(2)]],
+    constant void* lightingModelData [[buffer(3)]]
+  ) {
     float3 lightDir = float3(1.0);
 
     float attenuation = 1.0;
     switch (LightingModel(lightingModel)) {
-      case Point:
-        lightDir = normalize(lightPosition - in.worldPosition);
-        attenuation = shadePoint(lightPosition, in.worldPosition);
+      case Point: {
+        const constant LightingPointData* pointData = (const constant LightingPointData*)lightingModelData;
+        lightDir = normalize(pointData->position - in.worldPosition);
+        attenuation = shadePoint(pointData->position, in.worldPosition);
         break;
-      case Spotlight:
-        lightDir = normalize(float3(4.0, 3.0, 16.0));
-        attenuation = spotlightFactor(lightPosition, lightDir, in.worldPosition, 0.2, 0.25);
+      }
+      case Spotlight: {
+        const constant LightingSpotlightData* spotlightData = (const constant LightingSpotlightData*)lightingModelData;
+        lightDir = normalize(spotlightData->direction);
+        float angle = spotlightData->coneAngle;
+        attenuation = spotlightFactor(spotlightData->position, lightDir, in.worldPosition, angle, angle + 0.05);
         break;
-      case Directional:
-        lightDir = normalize(float3(4.0, 3.0, 16.0));
+      }
+      case Directional: {
+        const constant LightingDirectionalData* directionalData = (const constant LightingDirectionalData*)lightingModelData;
+        lightDir = directionalData->direction;
         break;
+      }
     };
 
     float3 shade = 0.0;
