@@ -56,7 +56,26 @@ final class MTLQuestShadingAggregation {
     var position: SIMD3<Float> = .zero
   }
 
+  // Shading
+  /**
+   TODO:
+   - Color selection
+   - Control ambient
+   - Blinn
+   - Phong
+   */
+
   var shadingModel: ShadingModel = .lambertianReflection
+
+  // Lighting
+  /**
+   TODO:
+   - Color selection
+   - Control intensity
+   - Multiple lighting sources
+    - Start from predefined
+    - Focus on light accumulation
+   */
 
   var lightingModelType: LightingModel = .point
 
@@ -64,10 +83,21 @@ final class MTLQuestShadingAggregation {
   var spotlightData: SpotlightData = .init()
   var directionalData: DirectionalData = .init()
 
+  // Model
+
   var rotationData: SIMD3<Float> = .zero
   var translationData: SIMD3<Float> = .zero
-  
   var scaleData: SIMD3<Float> = SIMD3<Float>(repeating: 1)
+
+  // Camera
+  /**
+   TODO:
+   - Control FOV, nearZ / farZ
+   */
+
+  var cameraEye: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 3.0)
+  var center: SIMD3<Float> = .zero
+  var up: SIMD3<Float> = SIMD3<Float>(0, 1, 0)
 
   var position: SIMD3<Float> {
     switch lightingModelType {
@@ -92,7 +122,7 @@ struct MTLQuestShadingContainer: View {
   @State private var aggregation: MTLQuestShadingAggregation = .init()
   
   enum SettingsTab {
-    case shading, lighting, transform
+    case shading, lighting, transform, camera
   }
   
   @State private var selectedTab: SettingsTab = .shading
@@ -115,6 +145,7 @@ struct MTLQuestShadingContainer: View {
           Text("Shading").tag(SettingsTab.shading)
           Text("Lighting").tag(SettingsTab.lighting)
           Text("Transform").tag(SettingsTab.transform)
+          Text("Camera").tag(SettingsTab.camera)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -126,6 +157,8 @@ struct MTLQuestShadingContainer: View {
             .tag(SettingsTab.lighting)
           transformConfiguration()
             .tag(SettingsTab.transform)
+          cameraConfiguration()
+            .tag(SettingsTab.camera)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
       }
@@ -345,6 +378,96 @@ struct MTLQuestShadingContainer: View {
             }, label: { Image(systemName: "arrow.clockwise") })
           }
           Spacer()
+        }
+      }
+      .padding(.vertical)
+    }
+    .scrollIndicators(.never)
+  }
+  
+  @ViewBuilder
+  private func cameraConfiguration() -> some View {
+    ScrollView {
+      VStack(spacing: 16) {
+        Text("Camera")
+          .font(.headline)
+          .padding(.top)
+        
+        // Eye
+        Text("Eye")
+          .font(.subheadline)
+        HStack {
+          Text("Eye X: \(String(format: "%.2f", aggregation.cameraEye.x))")
+          Slider(value: $aggregation.cameraEye.x, in: -5...5, step: 0.01)
+          Button(action: {
+            aggregation.cameraEye.x = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+        HStack {
+          Text("Eye Y: \(String(format: "%.2f", aggregation.cameraEye.y))")
+          Slider(value: $aggregation.cameraEye.y, in: -5...5, step: 0.01)
+          Button(action: {
+            aggregation.cameraEye.y = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+        HStack {
+          Text("Eye Z: \(String(format: "%.2f", aggregation.cameraEye.z))")
+          Slider(value: $aggregation.cameraEye.z, in: -5...5, step: 0.01)
+          Button(action: {
+            aggregation.cameraEye.z = 3.0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+
+        // Center
+        Text("Center")
+          .font(.subheadline)
+          .padding(.top, 8)
+        HStack {
+          Text("Center X: \(String(format: "%.2f", aggregation.center.x))")
+          Slider(value: $aggregation.center.x, in: -50...50, step: 0.01)
+          Button(action: {
+            aggregation.center.x = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+        HStack {
+          Text("Center Y: \(String(format: "%.2f", aggregation.center.y))")
+          Slider(value: $aggregation.center.y, in: -50...50, step: 0.01)
+          Button(action: {
+            aggregation.center.y = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+        HStack {
+          Text("Center Z: \(String(format: "%.2f", aggregation.center.z))")
+          Slider(value: $aggregation.center.z, in: -50...50, step: 0.01)
+          Button(action: {
+            aggregation.center.z = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+
+        // Up
+        Text("Up")
+          .font(.subheadline)
+          .padding(.top, 8)
+        HStack {
+          Text("Up X: \(String(format: "%.2f", aggregation.up.x))")
+          Slider(value: $aggregation.up.x, in: -1...1, step: 0.01)
+          Button(action: {
+            aggregation.up.x = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+        HStack {
+          Text("Up Y: \(String(format: "%.2f", aggregation.up.y))")
+          Slider(value: $aggregation.up.y, in: -1...1, step: 0.01)
+          Button(action: {
+            aggregation.up.y = 1
+          }, label: { Image(systemName: "arrow.clockwise") })
+        }
+        HStack {
+          Text("Up Z: \(String(format: "%.2f", aggregation.up.z))")
+          Slider(value: $aggregation.up.z, in: -1...1, step: 0.01)
+          Button(action: {
+            aggregation.up.z = 0
+          }, label: { Image(systemName: "arrow.clockwise") })
         }
       }
       .padding(.vertical)

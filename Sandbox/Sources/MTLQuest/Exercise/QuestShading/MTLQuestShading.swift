@@ -160,9 +160,7 @@ extension MTLQuestShading {
     private let gridSpacing: Float = 0
     
     private var aggregation: MTLQuestShadingAggregation
-    
-    /// Note: The vertex Metal function must accept a buffer argument ([[buffer(2)]])
-    /// for model matrix per-instance, and use instance_id to fetch it for each instance.
+
     lazy var renderer: MTLQuestRenderer = {
       MTLQuestRenderer(
         device: device
@@ -182,8 +180,15 @@ extension MTLQuestShading {
         )
 
         let radius = cameraDistance
-        let eye = SIMD3<Float>(-2.0, 2.0, 1.0) * radius
-        let center = SIMD3<Float>(0.0, 0.0, 0.0)
+        let eye: SIMD3<Float> = aggregation.cameraEye * radius
+        let center: SIMD3<Float> = aggregation.center
+        let up: SIMD3<Float> = aggregation.up
+
+        let m_view: simd_float4x4 = .lookAt(
+          eye: eye,
+          center: center,
+          up: up
+        )
 
         /// -------- Start model --------
 
@@ -223,12 +228,6 @@ extension MTLQuestShading {
             ptr[i] = transforms[i]
           }
         }
-        
-        let m_view: simd_float4x4 = .lookAt(
-          eye: eye,
-          center: center,
-          up: SIMD3<Float>(0, 3, 0)
-        )
         
         let renderPD_objects = MTLRenderPipelineDescriptor().configure {
           $0.vertexDescriptor = vertexDescriptor
