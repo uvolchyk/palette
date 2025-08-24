@@ -57,11 +57,17 @@ final class MTLQuestShadingAggregation {
   }
 
   var shadingModel: ShadingModel = .lambertianReflection
+
   var lightingModelType: LightingModel = .point
 
   var pointData: PointData = .init()
   var spotlightData: SpotlightData = .init()
   var directionalData: DirectionalData = .init()
+
+  var rotationData: SIMD3<Float> = .zero
+  var translationData: SIMD3<Float> = .zero
+  
+  var scaleData: SIMD3<Float> = SIMD3<Float>(repeating: 1)
 
   var position: SIMD3<Float> {
     switch lightingModelType {
@@ -81,84 +87,108 @@ final class MTLQuestShadingAggregation {
 }
 
 struct MTLQuestShadingContainer: View {
-  @State private var showPanel = false
-  
-  @State private var yaw: Float = 0
-  @State private var pitch: Float = 0
-  @State private var head: Float = 0
-  
-  // New state property to control automatic rotation toggle
   @State private var automaticRotation: Bool = false
 
-  @State private var lightingAggregation: MTLQuestShadingAggregation = .init()
+  @State private var aggregation: MTLQuestShadingAggregation = .init()
+  
+  enum SettingsTab {
+    case shading, lighting, transform
+  }
+  
+  @State private var selectedTab: SettingsTab = .shading
 
   let exercise: MTLQuestExercise
   
   var body: some View {
-    ZStack(alignment: .bottom) {
+    VStack(spacing: 0) {
       MTLQuestShading(
         exercise: exercise,
-        yaw: $yaw,
-        pitch: $pitch,
-        head: $head,
         automaticRotation: $automaticRotation,
-        lightingAggregation: lightingAggregation
+        aggregation: aggregation
       )
-      .edgesIgnoringSafeArea(.all)
+      .frame(maxHeight: .infinity)
+      .layoutPriority(1)
+      .border(.red)
       
-      Button {
-        showPanel.toggle()
-      } label: {
-        Label("Camera Controls", systemImage: "camera.viewfinder")
-          .padding(.horizontal)
-          .padding(.vertical, 8)
-          .background(.thinMaterial, in: Capsule())
-      }
-      .padding(.bottom, 16)
-    }
-    .sheet(isPresented: $showPanel) {
       VStack(spacing: 24.0) {
-        Picker("Shading Model", selection: $lightingAggregation.shadingModel) {
+        Picker("", selection: $selectedTab) {
+          Text("Shading").tag(SettingsTab.shading)
+          Text("Lighting").tag(SettingsTab.lighting)
+          Text("Transform").tag(SettingsTab.transform)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        
+        TabView(selection: $selectedTab) {
+          shadingConfiguration()
+            .tag(SettingsTab.shading)
+          lightingConfiguration()
+            .tag(SettingsTab.lighting)
+          transformConfiguration()
+            .tag(SettingsTab.transform)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+      }
+      .padding()
+      .frame(maxHeight: .infinity)
+      .layoutPriority(1)
+    }
+  }
+
+  @ViewBuilder
+  private func shadingConfiguration() -> some View {
+    ScrollView {
+      VStack(spacing: 24) {
+        Picker("Shading Model", selection: $aggregation.shadingModel) {
           ForEach(MTLQuestShadingAggregation.ShadingModel.allCases) { model in
             Text(model.displayName).tag(model)
           }
         }
         .pickerStyle(.segmented)
+        Spacer()
+      }
+    }
+    .scrollIndicators(.never)
+  }
 
-        Picker("Lighting Model", selection: $lightingAggregation.lightingModelType) {
+  @ViewBuilder
+  private func lightingConfiguration() -> some View {
+    ScrollView {
+      VStack(spacing: 24) {
+        Picker("Lighting Model", selection: $aggregation.lightingModelType) {
           ForEach(MTLQuestShadingAggregation.LightingModel.allCases) { model in
             Text(model.displayName).tag(model)
           }
         }
         .pickerStyle(.segmented)
 
-        switch lightingAggregation.lightingModelType {
+        switch aggregation.lightingModelType {
         case .point:
           VStack(alignment: .leading) {
             Text("Point Light Position")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", lightingAggregation.pointData.position.x))")
+              Text("X: \(String(format: "%.2f", aggregation.pointData.position.x))")
               Slider(
-                value: $lightingAggregation.pointData.position.x,
+                value: $aggregation.pointData.position.x,
                 in: -30...30, step: 0.1
               )
               Button(action: {
-                lightingAggregation.pointData.position.x = 2
+                aggregation.pointData.position.x = 2
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", lightingAggregation.pointData.position.y))")
-              Slider(value: $lightingAggregation.pointData.position.y, in: -30...30, step: 0.1)
+              Text("Y: \(String(format: "%.2f", aggregation.pointData.position.y))")
+              Slider(value: $aggregation.pointData.position.y, in: -30...30, step: 0.1)
               Button(action: {
-                lightingAggregation.pointData.position.y = 8
+                aggregation.pointData.position.y = 8
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", lightingAggregation.pointData.position.z))")
-              Slider(value: $lightingAggregation.pointData.position.z, in: -30...30, step: 0.1)
+              Text("Z: \(String(format: "%.2f", aggregation.pointData.position.z))")
+              Slider(value: $aggregation.pointData.position.z, in: -30...30, step: 0.1)
               Button(action: {
-                lightingAggregation.pointData.position.z = 10
+                aggregation.pointData.position.z = 10
               }, label: { Image(systemName: "arrow.clockwise") })
             }
           }
@@ -167,45 +197,45 @@ struct MTLQuestShadingContainer: View {
             Text("Spotlight Position")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", lightingAggregation.spotlightData.position.x))")
-              Slider(value: $lightingAggregation.spotlightData.position.x, in: -30...30, step: 0.1)
+              Text("X: \(String(format: "%.2f", aggregation.spotlightData.position.x))")
+              Slider(value: $aggregation.spotlightData.position.x, in: -30...30, step: 0.1)
               Button(action: {
-                lightingAggregation.spotlightData.position.x = 2
+                aggregation.spotlightData.position.x = 2
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", lightingAggregation.spotlightData.position.y))")
-              Slider(value: $lightingAggregation.spotlightData.position.y, in: -30...30, step: 0.1)
+              Text("Y: \(String(format: "%.2f", aggregation.spotlightData.position.y))")
+              Slider(value: $aggregation.spotlightData.position.y, in: -30...30, step: 0.1)
               Button(action: {
-                lightingAggregation.spotlightData.position.y = 8
+                aggregation.spotlightData.position.y = 8
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", lightingAggregation.spotlightData.position.z))")
-              Slider(value: $lightingAggregation.spotlightData.position.z, in: -30...30, step: 0.1)
+              Text("Z: \(String(format: "%.2f", aggregation.spotlightData.position.z))")
+              Slider(value: $aggregation.spotlightData.position.z, in: -30...30, step: 0.1)
               Button(action: {
-                lightingAggregation.spotlightData.position.z = 10
+                aggregation.spotlightData.position.z = 10
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             Divider()
             Text("Direction")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", lightingAggregation.spotlightData.direction.x))")
-              Slider(value: $lightingAggregation.spotlightData.direction.x, in: -1...1, step: 0.01)
+              Text("X: \(String(format: "%.2f", aggregation.spotlightData.direction.x))")
+              Slider(value: $aggregation.spotlightData.direction.x, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", lightingAggregation.spotlightData.direction.y))")
-              Slider(value: $lightingAggregation.spotlightData.direction.y, in: -1...1, step: 0.01)
+              Text("Y: \(String(format: "%.2f", aggregation.spotlightData.direction.y))")
+              Slider(value: $aggregation.spotlightData.direction.y, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", lightingAggregation.spotlightData.direction.z))")
-              Slider(value: $lightingAggregation.spotlightData.direction.z, in: -1...1, step: 0.01)
+              Text("Z: \(String(format: "%.2f", aggregation.spotlightData.direction.z))")
+              Slider(value: $aggregation.spotlightData.direction.z, in: -1...1, step: 0.01)
             }
             Divider()
             HStack {
-              Text("Cone Angle: \(String(format: "%.2f", lightingAggregation.spotlightData.coneAngle))")
-              Slider(value: $lightingAggregation.spotlightData.coneAngle, in: 0...(.pi / 2), step: 0.01)
+              Text("Cone Angle: \(String(format: "%.2f", aggregation.spotlightData.coneAngle))")
+              Slider(value: $aggregation.spotlightData.coneAngle, in: 0...(.pi / 2), step: 0.01)
             }
           }
         case .directional:
@@ -213,24 +243,112 @@ struct MTLQuestShadingContainer: View {
             Text("Directional Direction")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", lightingAggregation.directionalData.direction.x))")
-              Slider(value: $lightingAggregation.directionalData.direction.x, in: -1...1, step: 0.01)
+              Text("X: \(String(format: "%.2f", aggregation.directionalData.direction.x))")
+              Slider(value: $aggregation.directionalData.direction.x, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", lightingAggregation.directionalData.direction.y))")
-              Slider(value: $lightingAggregation.directionalData.direction.y, in: -1...1, step: 0.01)
+              Text("Y: \(String(format: "%.2f", aggregation.directionalData.direction.y))")
+              Slider(value: $aggregation.directionalData.direction.y, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", lightingAggregation.directionalData.direction.z))")
-              Slider(value: $lightingAggregation.directionalData.direction.z, in: -1...1, step: 0.01)
+              Text("Z: \(String(format: "%.2f", aggregation.directionalData.direction.z))")
+              Slider(value: $aggregation.directionalData.direction.z, in: -1...1, step: 0.01)
             }
           }
         }
         Spacer()
       }
-      .padding()
-      .presentationDetents([.medium, .large])
     }
+    .scrollIndicators(.never)
+  }
+
+  @ViewBuilder
+  private func transformConfiguration() -> some View {
+    ScrollView {
+      VStack(spacing: 16) {
+        VStack(alignment: .leading) {
+          Text("Rotation")
+            .font(.subheadline)
+          HStack {
+            Text("Yaw: \(String(format: "%.2f", aggregation.rotationData.x))")
+            Slider(value: $aggregation.rotationData.x, in: -Float.pi...Float.pi, step: 0.01)
+            Button(action: {
+              aggregation.rotationData.x = 0
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          
+          HStack {
+            Text("Pitch: \(String(format: "%.2f", aggregation.rotationData.y))")
+            Slider(value: $aggregation.rotationData.y, in: -Float.pi...Float.pi, step: 0.01)
+            Button(action: {
+              aggregation.rotationData.y = 0
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          
+          HStack {
+            Text("Head: \(String(format: "%.2f", aggregation.rotationData.z))")
+            Slider(value: $aggregation.rotationData.z, in: -Float.pi...Float.pi, step: 0.01)
+            Button(action: {
+              aggregation.rotationData.z = 0
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          Spacer()
+        }
+        VStack(alignment: .leading) {
+          Text("Translation")
+            .font(.subheadline)
+          HStack {
+            Text("Translation X: \(String(format: "%.2f", aggregation.translationData.x))")
+            Slider(value: $aggregation.translationData.x, in: -50...50, step: 0.01)
+            Button(action: {
+              aggregation.translationData.x = 0
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          HStack {
+            Text("Translation Y: \(String(format: "%.2f", aggregation.translationData.y))")
+            Slider(value: $aggregation.translationData.y, in: -50...50, step: 0.01)
+            Button(action: {
+              aggregation.translationData.y = 0
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          HStack {
+            Text("Translation Z: \(String(format: "%.2f", aggregation.translationData.z))")
+            Slider(value: $aggregation.translationData.z, in: -50...50, step: 0.01)
+            Button(action: {
+              aggregation.translationData.z = 0
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          Spacer()
+        }
+        VStack(alignment: .leading) {
+          Text("Scale")
+            .font(.subheadline)
+          HStack {
+            Text("Scale X: \(String(format: "%.2f", aggregation.scaleData.x))")
+            Slider(value: $aggregation.scaleData.x, in: 0.1...5, step: 0.01)
+            Button(action: {
+              aggregation.scaleData.x = 1
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          HStack {
+            Text("Scale Y: \(String(format: "%.2f", aggregation.scaleData.y))")
+            Slider(value: $aggregation.scaleData.y, in: 0.1...5, step: 0.01)
+            Button(action: {
+              aggregation.scaleData.y = 1
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          HStack {
+            Text("Scale Z: \(String(format: "%.2f", aggregation.scaleData.z))")
+            Slider(value: $aggregation.scaleData.z, in: 0.1...5, step: 0.01)
+            Button(action: {
+              aggregation.scaleData.z = 1
+            }, label: { Image(systemName: "arrow.clockwise") })
+          }
+          Spacer()
+        }
+      }
+      .padding(.vertical)
+    }
+    .scrollIndicators(.never)
   }
 }
-

@@ -13,11 +13,8 @@ import PLTMath
 
 struct MTLQuestShading: UIViewRepresentable {
   let exercise: MTLQuestExercise
-  @Binding var yaw: Float
-  @Binding var pitch: Float
-  @Binding var head: Float
   @Binding var automaticRotation: Bool
-  let lightingAggregation: MTLQuestShadingAggregation
+  let aggregation: MTLQuestShadingAggregation
   
   func makeUIView(context: Context) -> MTKView {
     let coordinator = context.coordinator
@@ -104,11 +101,8 @@ extension MTLQuestShading {
   func makeCoordinator() -> Coordinator {
     Coordinator(
       exercise: exercise,
-      yaw: $yaw,
-      pitch: $pitch,
-      head: $head,
       automaticRotation: $automaticRotation,
-      lightingAggregation: lightingAggregation
+      aggregation: aggregation
     )
   }
   
@@ -118,14 +112,6 @@ extension MTLQuestShading {
     private var cameraDistance: Float = 50.0
     private var cameraX: Float = 0.0
     private var cameraY: Float = 0.0
-    
-    private var _yaw: () -> Float
-    private var _pitch: () -> Float
-    private var _head: () -> Float
-    
-    private var yaw: Float { _yaw() }
-    private var pitch: Float { _pitch() }
-    private var head: Float { _head() }
     
     private var automaticRotation: Binding<Bool>
     
@@ -174,7 +160,7 @@ extension MTLQuestShading {
     private let gridSpacing: Float = 0
     
     // New binding for shading model
-    private var lightingAggregation: MTLQuestShadingAggregation
+    private var aggregation: MTLQuestShadingAggregation
     
     /// Note: The vertex Metal function must accept a buffer argument ([[buffer(2)]])
     /// for model matrix per-instance, and use instance_id to fetch it for each instance.
@@ -209,14 +195,16 @@ extension MTLQuestShading {
           activePitch = automaticAngle
           activeHead = automaticAngle
         } else {
-          activeYaw = yaw
-          activePitch = pitch
-          activeHead = head
+          activeYaw = aggregation.rotationData.x
+          activePitch = aggregation.rotationData.y
+          activeHead = aggregation.rotationData.z
         }
         
         for i in 0..<instanceTransforms.count {
           var t = instanceTransforms[i]
-          
+
+          t.translation = aggregation.translationData
+          t.scale = aggregation.scaleData
           t.applyQuaternion(
             yaw: activeYaw + Float(i) * (.pi * 2 / Float(instanceTransforms.count)),
             pitch: activePitch + Float(i) * (.pi * 2 / Float(instanceTransforms.count)),
@@ -286,29 +274,29 @@ extension MTLQuestShading {
 
             // Pass shading model to the fragment shader as an Int (the rawValue)
             // This can be used in the shader to select shading logic.
-            var shadingModelRawValue = lightingAggregation.shadingModel.rawValue
+            var shadingModelRawValue = aggregation.shadingModel.rawValue
             encoder.setFragmentBytes(&shadingModelRawValue, length: MemoryLayout<Int>.stride, index: 1)
 
-            var lightingModelRawValue = lightingAggregation.index
+            var lightingModelRawValue = aggregation.index
             encoder.setFragmentBytes(&lightingModelRawValue, length: MemoryLayout<Int>.stride, index: 2)
 
-            switch lightingAggregation.lightingModelType {
+            switch aggregation.lightingModelType {
             case .point:
-              var _data = lightingAggregation.pointData
+              var _data = aggregation.pointData
               encoder.setFragmentBytes(
                 &_data,
                 length: MemoryLayout<MTLQuestShadingAggregation.PointData>.stride,
                 index: 3
               )
             case .spotlight:
-              var _data = lightingAggregation.spotlightData
+              var _data = aggregation.spotlightData
               encoder.setFragmentBytes(
                 &_data,
                 length: MemoryLayout<MTLQuestShadingAggregation.SpotlightData>.stride,
                 index: 3
               )
             case .directional:
-              var _data = lightingAggregation.directionalData
+              var _data = aggregation.directionalData
               encoder.setFragmentBytes(
                 &_data,
                 length: MemoryLayout<MTLQuestShadingAggregation.DirectionalData>.stride,
@@ -341,7 +329,7 @@ extension MTLQuestShading {
         /// -------- Light source visualization --------
         
         var lightT = lightTransform
-        lightT.translation = lightingAggregation.position
+        lightT.translation = aggregation.position
         lightT.scale = SIMD3<Float>(repeating: 0.5)
 
         let m_model_light = lightT.modelMatrix
@@ -380,7 +368,7 @@ extension MTLQuestShading {
             length: MemoryLayout<SceneUniforms>.stride,
             index: 1
           )
-          var _lightPosition = lightingAggregation.position
+          var _lightPosition = aggregation.position
           encoder.setFragmentBytes(&_lightPosition, length: MemoryLayout<SIMD3<Float>>.stride, index: 1)
           encoder.drawIndexedPrimitives(
             type: mdlLightObject.submesh.primitiveType,
@@ -475,25 +463,18 @@ extension MTLQuestShading {
     
     init(
       exercise: MTLQuestExercise,
-      yaw: Binding<Float>,
-      pitch: Binding<Float>,
-      head: Binding<Float>,
       automaticRotation: Binding<Bool>,
-      lightingAggregation: MTLQuestShadingAggregation
+      aggregation: MTLQuestShadingAggregation
     ) {
       self.exercise = exercise
       self.library = .init(
         library: try! device.makeDefaultLibrary(bundle: .main),
         namespace: String(describing: MTLQuestShading.self)
       )
-      
-      self._yaw = { yaw.wrappedValue }
-      self._pitch = { pitch.wrappedValue }
-      self._head = { head.wrappedValue }
-      
+
       self.automaticRotation = automaticRotation
 
-      self.lightingAggregation = lightingAggregation
+      self.aggregation = aggregation
       
       let modelURL = Bundle.main.url(forResource: "pikachu", withExtension: "obj")!
       self.mdlObject = MDLObjectParser(
@@ -506,7 +487,7 @@ extension MTLQuestShading {
       self.mdlLightObject = MDLObjectParser(modelURL: lightModelURL, device: device)
       
       self.lightTransform = Transform(
-        translation: lightingAggregation.position,
+        translation: aggregation.position,
         scale: SIMD3<Float>(repeating: 3.0)
       )
       
