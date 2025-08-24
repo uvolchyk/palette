@@ -124,7 +124,6 @@ namespace MTLQuestShading {
     return saturate((theta - cosOuter) / (cosInner - cosOuter));
   }
 
-
   struct SceneUniforms {
     float4x4 mvp;
     float4x4 model;
@@ -219,7 +218,12 @@ namespace MTLQuestShading {
 
   struct GizmoVertexIn {
     float3 position [[attribute(0)]];
-    float3 color    [[attribute(1)]];
+    float3 normal   [[attribute(1)]];
+  };
+
+  struct GizmoInstance {
+    float4x4 model;
+    float3 color;
   };
 
   struct GizmoVertexOut {
@@ -228,18 +232,24 @@ namespace MTLQuestShading {
   };
 
   // MVP matrix for gizmo is at buffer(2)
-  vertex GizmoVertexOut gizmo_vertex(
+  vertex GizmoVertexOut funVertexGizmo(
     GizmoVertexIn in          [[stage_in]],
-    constant SceneUniforms &u    [[buffer(2)]]
+    constant SceneUniforms &u    [[buffer(1)]],
+    constant GizmoInstance *instanceModels [[buffer(2)]],
+    uint instanceID                  [[instance_id]]
   ) {
+    GizmoInstance instance = instanceModels[instanceID];
+
     GizmoVertexOut out;
-    out.position = u.mvp * float4(in.position, 1.0);
-    out.color = float4(in.color, 1.0);
+
+    out.position = u.mvp * instance.model * float4(in.position, 1.0);
+
+    out.color = float4(instance.color, 1.0);
+
     return out;
   }
 
-  fragment float4 gizmo_fragment(GizmoVertexOut in [[stage_in]]) {
+  fragment float4 funFragmentGizmo(GizmoVertexOut in [[stage_in]]) {
     return in.color;
   }
 }
-

@@ -109,7 +109,7 @@ extension MTLQuestShading {
   final class Coordinator {
     private var rotationAngle: Float = 0
     private var displayLink: CADisplayLink?
-    private var cameraDistance: Float = 50.0
+    private var cameraDistance: Float = 10.0
     private var cameraX: Float = 0.0
     private var cameraY: Float = 0.0
     
@@ -146,9 +146,9 @@ extension MTLQuestShading {
     }()
     
     let mdlObject: MDLObjectParser
-    
-    // --- New properties for light ---
     let mdlLightObject: MDLObjectParser
+    let mdlGizmoArrow: MDLObjectParser
+
     private var lightTransform: Transform
     
     private var instanceTransforms: [Transform] = []
@@ -159,7 +159,6 @@ extension MTLQuestShading {
     private let gridRows = 1
     private let gridSpacing: Float = 0
     
-    // New binding for shading model
     private var aggregation: MTLQuestShadingAggregation
     
     /// Note: The vertex Metal function must accept a buffer argument ([[buffer(2)]])
@@ -181,11 +180,13 @@ extension MTLQuestShading {
           nearZ: 0.1,
           farZ: 1000.0
         )
+
         let radius = cameraDistance
-        let eye = SIMD3<Float>(0.0, 0.0, 1.0) * radius
-        //        let center = SIMD3<Float>(cameraX, cameraY, 0)
-        let center = SIMD3<Float>(0.0, -12.0, 0.0)
-        
+        let eye = SIMD3<Float>(-2.0, 2.0, 1.0) * radius
+        let center = SIMD3<Float>(0.0, 0.0, 0.0)
+
+        /// -------- Start model --------
+
         let activeYaw: Float
         let activePitch: Float
         let activeHead: Float
@@ -325,31 +326,86 @@ extension MTLQuestShading {
               instanceCount: instanceTransforms.count
             )
           }
-        
-        /// -------- Light source visualization --------
-        
-        var lightT = lightTransform
-        lightT.translation = aggregation.position
-        lightT.scale = SIMD3<Float>(repeating: 0.5)
 
-        let m_model_light = lightT.modelMatrix
-        let mvp_light = m_perspective * m_view * m_model_light
-        var uniforms_light = SceneUniforms(
-          mvp: mvp_light,
-          model: m_model_light
+        /// -------- End model --------
+        
+        /// -------- Start gizmo --------
+
+        // New gizmo arrows rendering
+        let arrowScale: Float = 3.0
+        let arrowTransforms: [(Transform, SIMD3<Float>)] = [
+          // X axis arrow
+          (
+            Transform(
+              translation: SIMD3<Float>(0.0, 0.0, 0.0),
+              rotation: simd_quatf(angle: 0, axis: SIMD3<Float>(0, 0, 1)),
+              scale: SIMD3<Float>(repeating: arrowScale)
+            ),
+            SIMD3<Float>(1, 0, 0)
+          ),
+          // Y axis arrow
+          (
+            Transform(
+              translation: SIMD3<Float>(0.0, 0.0, 0.0),
+              rotation: simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(0, 0, 1)),
+              scale: SIMD3<Float>(repeating: arrowScale)
+            ),
+            SIMD3<Float>(0, 1, 0)
+          ),
+          // Z axis arrow
+          (
+            Transform(
+              translation: SIMD3<Float>(0.0, 0.0, 0.0),
+              rotation: simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(1, 0, 0)),
+              scale: SIMD3<Float>(repeating: arrowScale)
+            ),
+            SIMD3<Float>(0, 0, 1)
+          ),
+        ]
+
+        struct GizmoInstance {
+          let model: float4x4
+          let color: SIMD3<Float>
+        }
+
+        let arrowTransformsBuffer = device.makeBuffer(
+          length: MemoryLayout<GizmoInstance>.stride * arrowTransforms.count,
+          options: []
         )
 
-        let renderPD_light = MTLRenderPipelineDescriptor().configure {
+        if let arrowTransformsBuffer {
+          let ptr = arrowTransformsBuffer
+            .contents()
+            .bindMemory(
+              to: GizmoInstance.self,
+              capacity: arrowTransforms.count
+            )
+
+          for i in 0..<arrowTransforms.count {
+            ptr[i] = GizmoInstance(
+              model: arrowTransforms[i].0.modelMatrix,
+              color: arrowTransforms[i].1
+            )
+          }
+        }
+        
+        let renderPD_arrow = MTLRenderPipelineDescriptor().configure {
           $0.vertexDescriptor = vertexDescriptor
-          $0.vertexFunction = try! library.funVertex
-          $0.fragmentFunction = try! library.funFragment
+          $0.vertexFunction = try! library.funVertexGizmo
+          $0.fragmentFunction = try! library.funFragmentGizmo
           $0.colorAttachments[0].pixelFormat = view.colorPixelFormat
           $0.depthAttachmentPixelFormat = .depth32Float
         }
-        let renderPipeline_light = try! device.makeRenderPipelineState(descriptor: renderPD_light)
-
+        let renderPipeline_arrow = try! device.makeRenderPipelineState(descriptor: renderPD_arrow)
+        
+        let mvp_arrow = m_perspective * m_view * matrix_identity_float4x4
+        var uniforms_arrow = SceneUniforms(
+          mvp: mvp_arrow,
+          model: matrix_identity_float4x4
+        )
+        
         renderEncoder?.configure { encoder in
-          encoder.setRenderPipelineState(renderPipeline_light)
+          encoder.setRenderPipelineState(renderPipeline_arrow)
           encoder.setDepthStencilState(
             device.makeDepthStencilState(
               descriptor: MTLDepthStencilDescriptor().configure {
@@ -359,100 +415,88 @@ extension MTLQuestShading {
             )!
           )
           encoder.setVertexBuffer(
-            mdlLightObject.mesh.vertexBuffers[0].buffer,
-            offset: mdlLightObject.mesh.vertexBuffers[0].offset,
+            mdlGizmoArrow.mesh.vertexBuffers[0].buffer,
+            offset: mdlGizmoArrow.mesh.vertexBuffers[0].offset,
             index: 0
           )
           encoder.setVertexBytes(
-            &uniforms_light,
+            &uniforms_arrow,
             length: MemoryLayout<SceneUniforms>.stride,
             index: 1
           )
-          var _lightPosition = aggregation.position
-          encoder.setFragmentBytes(&_lightPosition, length: MemoryLayout<SIMD3<Float>>.stride, index: 1)
+          encoder.setVertexBuffer(
+            arrowTransformsBuffer,
+            offset: 0,
+            index: 2
+          )
+          
           encoder.drawIndexedPrimitives(
-            type: mdlLightObject.submesh.primitiveType,
-            indexCount: mdlLightObject.submesh.indexCount,
-            indexType: mdlLightObject.submesh.indexType,
-            indexBuffer: mdlLightObject.submesh.indexBuffer.buffer,
-            indexBufferOffset: mdlLightObject.submesh.indexBuffer.offset,
-            instanceCount: 1
+            type: mdlGizmoArrow.submesh.primitiveType,
+            indexCount: mdlGizmoArrow.submesh.indexCount,
+            indexType: mdlGizmoArrow.submesh.indexType,
+            indexBuffer: mdlGizmoArrow.submesh.indexBuffer.buffer,
+            indexBufferOffset: mdlGizmoArrow.submesh.indexBuffer.offset,
+            instanceCount: arrowTransforms.count
           )
         }
+        
+        /// -------- End gizmo --------
+        
+        /// -------- Light source visualization --------
+        
+//        var lightT = lightTransform
+//        lightT.translation = aggregation.position
+//        lightT.scale = SIMD3<Float>(repeating: 0.5)
+//
+//        let m_model_light = lightT.modelMatrix
+//        let mvp_light = m_perspective * m_view * m_model_light
+//        var uniforms_light = SceneUniforms(
+//          mvp: mvp_light,
+//          model: m_model_light
+//        )
+//
+//        let renderPD_light = MTLRenderPipelineDescriptor().configure {
+//          $0.vertexDescriptor = vertexDescriptor
+//          $0.vertexFunction = try! library.funVertex
+//          $0.fragmentFunction = try! library.funFragment
+//          $0.colorAttachments[0].pixelFormat = view.colorPixelFormat
+//          $0.depthAttachmentPixelFormat = .depth32Float
+//        }
+//        let renderPipeline_light = try! device.makeRenderPipelineState(descriptor: renderPD_light)
+//
+//        renderEncoder?.configure { encoder in
+//          encoder.setRenderPipelineState(renderPipeline_light)
+//          encoder.setDepthStencilState(
+//            device.makeDepthStencilState(
+//              descriptor: MTLDepthStencilDescriptor().configure {
+//                $0.depthCompareFunction = .less
+//                $0.isDepthWriteEnabled = true
+//              }
+//            )!
+//          )
+//          encoder.setVertexBuffer(
+//            mdlLightObject.mesh.vertexBuffers[0].buffer,
+//            offset: mdlLightObject.mesh.vertexBuffers[0].offset,
+//            index: 0
+//          )
+//          encoder.setVertexBytes(
+//            &uniforms_light,
+//            length: MemoryLayout<SceneUniforms>.stride,
+//            index: 1
+//          )
+//          var _lightPosition = aggregation.position
+//          encoder.setFragmentBytes(&_lightPosition, length: MemoryLayout<SIMD3<Float>>.stride, index: 1)
+//          encoder.drawIndexedPrimitives(
+//            type: mdlLightObject.submesh.primitiveType,
+//            indexCount: mdlLightObject.submesh.indexCount,
+//            indexType: mdlLightObject.submesh.indexType,
+//            indexBuffer: mdlLightObject.submesh.indexBuffer.buffer,
+//            indexBufferOffset: mdlLightObject.submesh.indexBuffer.offset,
+//            instanceCount: 1
+//          )
+//        }
 
         /// -------- End light source visualization --------
-        
-        /// -------- gizmo --------
-        //        let renderPD_gizmo = MTLRenderPipelineDescriptor().configure {
-        //          $0.vertexDescriptor = vertexDescriptor
-        //          $0.vertexFunction = try! library.gizmo_vertex
-        //          $0.fragmentFunction = try! library.gizmo_fragment
-        //          $0.colorAttachments[0].pixelFormat = view.colorPixelFormat
-        //          $0.depthAttachmentPixelFormat = .depth32Float
-        //        }
-        //        let renderPipeline_gizmo = try! device.makeRenderPipelineState(descriptor: renderPD_objects)
-        //
-        //        // Base axis lines for gizmo: X (red), Y (green), Z (blue)
-        //        var vertex_gizmo: [Float] = [
-        //          0, 0, 0, 1, 0, 0,
-        //          1, 0, 0, 1, 0, 0,
-        //          0, 0, 0, 0, 1, 0,
-        //          0, 1, 0, 0, 1, 0,
-        //          0, 0, 0, 0, 0, 1,
-        //          0, 0, 1, 0, 0, 1,
-        //        ]
-        //
-        //        // --- Append rotation axis line for current rotation ---
-        //        // This line will be drawn in yellow (1,1,0) and extends from -axisDir to +axisDir
-        //
-        //        // Length of the axis line for visibility
-        //        let axisLength: Float = 1.5
-        //
-        //        // Extract axis from quaternion form of current rotation
-        //        let quat = currentRotation.rotation
-        //        // Normalize to ensure direction vector is unit length
-        //        let axisDir = simd_normalize(quat.axis)
-        //
-        //        // Start vertex at negative axis direction scaled by length, color yellow (1,1,0)
-        //        vertex_gizmo.append(contentsOf: [
-        //          -axisLength * axisDir.x, -axisLength * axisDir.y, -axisLength * axisDir.z,
-        //          1, 1, 0
-        //        ])
-        //        // End vertex at positive axis direction scaled by length, color yellow (1,1,0)
-        //        vertex_gizmo.append(contentsOf: [
-        //          axisLength * axisDir.x, axisLength * axisDir.y, axisLength * axisDir.z,
-        //          1, 1, 0
-        //        ])
-        //
-        //        let vertexBuffer_gizmo = device.makeBuffer(
-        //          bytes: vertex_gizmo,
-        //          length: MemoryLayout<Float>.size * vertex_gizmo.count
-        //        )
-        //
-        //        let m_model_gizmo = rotationMatrix
-        //        let mvp_gizmo = m_perspective * m_view * rotationMatrix * m_model_gizmo
-        //        var uniforms = SceneUniforms(
-        //          mvp: mvp_gizmo,
-        //          model: m_model_gizmo
-        //        )
-        //
-        //        renderEncoder?
-        //          .configure { encoder in
-        //            encoder.setRenderPipelineState(renderPipeline_gizmo)
-        //            encoder.setVertexBuffer(vertexBuffer_gizmo, offset: 0, index: 0)
-        //            encoder.setVertexBytes(
-        //              &uniforms,
-        //              length: MemoryLayout<SceneUniforms>.stride,
-        //              index: 1
-        //            )
-        //
-        //            // Updated vertexCount to 8 (6 base vertices + 2 for axis line)
-        //            encoder.drawPrimitives(
-        //              type: .line,
-        //              vertexStart: 0,
-        //              vertexCount: 8
-        //            )
-        //          }
         
         renderEncoder?.endEncoding()
         
@@ -485,6 +529,10 @@ extension MTLQuestShading {
       // Load light sphere model
       let lightModelURL = Bundle.main.url(forResource: "sphere", withExtension: "obj")!
       self.mdlLightObject = MDLObjectParser(modelURL: lightModelURL, device: device)
+      
+      // Load arrow model for gizmo
+      let arrowModelURL = Bundle.main.url(forResource: "arrow", withExtension: "obj")!
+      self.mdlGizmoArrow = MDLObjectParser(modelURL: arrowModelURL, device: device)
       
       self.lightTransform = Transform(
         translation: aggregation.position,
