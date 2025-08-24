@@ -7,23 +7,40 @@
 
 import SwiftUI
 
-enum MTLQuestShadingModel: Int, CaseIterable, Identifiable {
-  case gooch = 0
-  case lambertianReflection
-  case bandedLighting
-  
-  var id: Self { self }
-  
-  var displayName: String {
-    switch self {
-    case .gooch: "Gooch"
-    case .lambertianReflection: "Lambert"
-    case .bandedLighting: "Banded"
+@Observable
+final class MTLQuestShadingAggregation {
+  enum ShadingModel: Int, CaseIterable, Identifiable {
+    case gooch = 0
+    case lambertianReflection
+    case bandedLighting
+    
+    var id: Self { self }
+    
+    var displayName: String {
+      switch self {
+      case .gooch: "Gooch"
+      case .lambertianReflection: "Lambert"
+      case .bandedLighting: "Banded"
+      }
     }
   }
-}
 
-enum MTLQuestLightingModel {
+  enum LightingModel: CaseIterable, Identifiable {
+    case point
+    case spotlight
+    case directional
+
+    var id: String { displayName }
+
+    var displayName: String {
+      switch self {
+      case .point: "Point"
+      case .spotlight: "Spotlight"
+      case .directional: "Directional"
+      }
+    }
+  }
+
   struct PointData {
     var position: SIMD3<Float> = .init(2, 2, 10)
   }
@@ -38,40 +55,27 @@ enum MTLQuestLightingModel {
     var direction: SIMD3<Float> = .init(0.0, 0.0, 1.0)
     var position: SIMD3<Float> = .zero
   }
-  
-  case point(PointData)
-  case spotlight(SpotlightData)
-  case directional(DirectionalData)
+
+  var shadingModel: ShadingModel = .lambertianReflection
+  var lightingModelType: LightingModel = .point
+
+  var pointData: PointData = .init()
+  var spotlightData: SpotlightData = .init()
+  var directionalData: DirectionalData = .init()
 
   var position: SIMD3<Float> {
-    switch self {
-    case .point(let data): data.position
-    case .spotlight(let data): data.position
-    case .directional(let data): data.position
+    switch lightingModelType {
+    case .point: pointData.position
+    case .spotlight: spotlightData.position
+    case .directional: directionalData.position
     }
   }
 
   var index: Int {
-    switch self {
+    switch lightingModelType {
     case .point: 0
     case .spotlight: 1
     case .directional: 2
-    }
-  }
-}
-
-enum MTLQuestLightingModelType: CaseIterable, Identifiable {
-  case point
-  case spotlight
-  case directional
-
-  var id: String { displayName }
-
-  var displayName: String {
-    switch self {
-    case .point: "Point"
-    case .spotlight: "Spotlight"
-    case .directional: "Directional"
     }
   }
 }
@@ -85,11 +89,9 @@ struct MTLQuestShadingContainer: View {
   
   // New state property to control automatic rotation toggle
   @State private var automaticRotation: Bool = false
-  
-  @State private var shadingModel: MTLQuestShadingModel = .lambertianReflection
-  @State private var lightingModelType: MTLQuestLightingModelType = .point
-  @State private var lightingModelData: MTLQuestLightingModel = .point(.init())
-  
+
+  @State private var lightingAggregation: MTLQuestShadingAggregation = .init()
+
   let exercise: MTLQuestExercise
   
   var body: some View {
@@ -100,8 +102,7 @@ struct MTLQuestShadingContainer: View {
         pitch: $pitch,
         head: $head,
         automaticRotation: $automaticRotation,
-        shadingModel: $shadingModel,
-        lightingModelData: $lightingModelData
+        lightingAggregation: lightingAggregation
       )
       .edgesIgnoringSafeArea(.all)
       
@@ -117,205 +118,111 @@ struct MTLQuestShadingContainer: View {
     }
     .sheet(isPresented: $showPanel) {
       VStack(spacing: 24.0) {
-        Picker("Shading Model", selection: $shadingModel) {
-          ForEach(MTLQuestShadingModel.allCases) { model in
+        Picker("Shading Model", selection: $lightingAggregation.shadingModel) {
+          ForEach(MTLQuestShadingAggregation.ShadingModel.allCases) { model in
             Text(model.displayName).tag(model)
           }
         }
         .pickerStyle(.segmented)
 
-        Picker("Lighting Model", selection: $lightingModelType) {
-          ForEach(MTLQuestLightingModelType.allCases) { model in
+        Picker("Lighting Model", selection: $lightingAggregation.lightingModelType) {
+          ForEach(MTLQuestShadingAggregation.LightingModel.allCases) { model in
             Text(model.displayName).tag(model)
           }
         }
-        .onChange(of: lightingModelType) { _, newType in
-          switch newType {
-          case .point: lightingModelData = .point(.init())
-          case .spotlight: lightingModelData = .spotlight(.init())
-          case .directional: lightingModelData = .directional(.init())
-          }
-        }
         .pickerStyle(.segmented)
-        
-        switch lightingModelData {
-        case .point(let data):
+
+        switch lightingAggregation.lightingModelType {
+        case .point:
           VStack(alignment: .leading) {
             Text("Point Light Position")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", data.position.x))")
-              Slider(value: Binding(
-                get: { data.position.x },
-                set: {
-                  var newData = data
-                  newData.position.x = $0
-                  lightingModelData = .point(newData)
-                }), in: -30...30, step: 0.1)
+              Text("X: \(String(format: "%.2f", lightingAggregation.pointData.position.x))")
+              Slider(
+                value: $lightingAggregation.pointData.position.x,
+                in: -30...30, step: 0.1
+              )
               Button(action: {
-                var newData = data
-                newData.position.x = 2
-                lightingModelData = .point(newData)
+                lightingAggregation.pointData.position.x = 2
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", data.position.y))")
-              Slider(value: Binding(
-                get: { data.position.y },
-                set: {
-                  var newData = data
-                  newData.position.y = $0
-                  lightingModelData = .point(newData)
-                }), in: -30...30, step: 0.1)
+              Text("Y: \(String(format: "%.2f", lightingAggregation.pointData.position.y))")
+              Slider(value: $lightingAggregation.pointData.position.y, in: -30...30, step: 0.1)
               Button(action: {
-                var newData = data
-                newData.position.y = 8
-                lightingModelData = .point(newData)
+                lightingAggregation.pointData.position.y = 8
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", data.position.z))")
-              Slider(value: Binding(
-                get: { data.position.z },
-                set: {
-                  var newData = data
-                  newData.position.z = $0
-                  lightingModelData = .point(newData)
-                }), in: -30...30, step: 0.1)
+              Text("Z: \(String(format: "%.2f", lightingAggregation.pointData.position.z))")
+              Slider(value: $lightingAggregation.pointData.position.z, in: -30...30, step: 0.1)
               Button(action: {
-                var newData = data
-                newData.position.z = 10
-                lightingModelData = .point(newData)
+                lightingAggregation.pointData.position.z = 10
               }, label: { Image(systemName: "arrow.clockwise") })
             }
           }
-        case .spotlight(let data):
+        case .spotlight:
           VStack(alignment: .leading) {
             Text("Spotlight Position")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", data.position.x))")
-              Slider(value: Binding(
-                get: { data.position.x },
-                set: {
-                  var newData = data
-                  newData.position.x = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: -30...30, step: 0.1)
+              Text("X: \(String(format: "%.2f", lightingAggregation.spotlightData.position.x))")
+              Slider(value: $lightingAggregation.spotlightData.position.x, in: -30...30, step: 0.1)
               Button(action: {
-                var newData = data
-                newData.position.x = 2
-                lightingModelData = .spotlight(newData)
+                lightingAggregation.spotlightData.position.x = 2
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", data.position.y))")
-              Slider(value: Binding(
-                get: { data.position.y },
-                set: {
-                  var newData = data
-                  newData.position.y = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: -30...30, step: 0.1)
+              Text("Y: \(String(format: "%.2f", lightingAggregation.spotlightData.position.y))")
+              Slider(value: $lightingAggregation.spotlightData.position.y, in: -30...30, step: 0.1)
               Button(action: {
-                var newData = data
-                newData.position.y = 8
-                lightingModelData = .spotlight(newData)
+                lightingAggregation.spotlightData.position.y = 8
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", data.position.z))")
-              Slider(value: Binding(
-                get: { data.position.z },
-                set: {
-                  var newData = data
-                  newData.position.z = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: -30...30, step: 0.1)
+              Text("Z: \(String(format: "%.2f", lightingAggregation.spotlightData.position.z))")
+              Slider(value: $lightingAggregation.spotlightData.position.z, in: -30...30, step: 0.1)
               Button(action: {
-                var newData = data
-                newData.position.z = 10
-                lightingModelData = .spotlight(newData)
+                lightingAggregation.spotlightData.position.z = 10
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             Divider()
             Text("Direction")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", data.direction.x))")
-              Slider(value: Binding(
-                get: { data.direction.x },
-                set: {
-                  var newData = data
-                  newData.direction.x = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: -1...1, step: 0.01)
+              Text("X: \(String(format: "%.2f", lightingAggregation.spotlightData.direction.x))")
+              Slider(value: $lightingAggregation.spotlightData.direction.x, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", data.direction.y))")
-              Slider(value: Binding(
-                get: { data.direction.y },
-                set: {
-                  var newData = data
-                  newData.direction.y = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: -1...1, step: 0.01)
+              Text("Y: \(String(format: "%.2f", lightingAggregation.spotlightData.direction.y))")
+              Slider(value: $lightingAggregation.spotlightData.direction.y, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", data.direction.z))")
-              Slider(value: Binding(
-                get: { data.direction.z },
-                set: {
-                  var newData = data
-                  newData.direction.z = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: -1...1, step: 0.01)
+              Text("Z: \(String(format: "%.2f", lightingAggregation.spotlightData.direction.z))")
+              Slider(value: $lightingAggregation.spotlightData.direction.z, in: -1...1, step: 0.01)
             }
             Divider()
             HStack {
-              Text("Cone Angle: \(String(format: "%.2f", data.coneAngle))")
-              Slider(value: Binding(
-                get: { data.coneAngle },
-                set: {
-                  var newData = data
-                  newData.coneAngle = $0
-                  lightingModelData = .spotlight(newData)
-                }), in: 0...(.pi / 2), step: 0.01)
+              Text("Cone Angle: \(String(format: "%.2f", lightingAggregation.spotlightData.coneAngle))")
+              Slider(value: $lightingAggregation.spotlightData.coneAngle, in: 0...(.pi / 2), step: 0.01)
             }
           }
-        case .directional(let data):
+        case .directional:
           VStack(alignment: .leading) {
             Text("Directional Direction")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", data.direction.x))")
-              Slider(value: Binding(
-                get: { data.direction.x },
-                set: {
-                  var newData = data
-                  newData.direction.x = $0
-                  lightingModelData = .directional(newData)
-                }), in: -1...1, step: 0.01)
+              Text("X: \(String(format: "%.2f", lightingAggregation.directionalData.direction.x))")
+              Slider(value: $lightingAggregation.directionalData.direction.x, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", data.direction.y))")
-              Slider(value: Binding(
-                get: { data.direction.y },
-                set: {
-                  var newData = data
-                  newData.direction.y = $0
-                  lightingModelData = .directional(newData)
-                }), in: -1...1, step: 0.01)
+              Text("Y: \(String(format: "%.2f", lightingAggregation.directionalData.direction.y))")
+              Slider(value: $lightingAggregation.directionalData.direction.y, in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", data.direction.z))")
-              Slider(value: Binding(
-                get: { data.direction.z },
-                set: {
-                  var newData = data
-                  newData.direction.z = $0
-                  lightingModelData = .directional(newData)
-                }), in: -1...1, step: 0.01)
+              Text("Z: \(String(format: "%.2f", lightingAggregation.directionalData.direction.z))")
+              Slider(value: $lightingAggregation.directionalData.direction.z, in: -1...1, step: 0.01)
             }
           }
         }
