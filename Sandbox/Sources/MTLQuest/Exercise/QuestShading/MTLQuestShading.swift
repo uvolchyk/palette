@@ -240,6 +240,8 @@ extension MTLQuestShading {
         
         let renderEncoder = buffer
           .makeRenderCommandEncoder(descriptor: viewRenderDescriptor)
+
+        renderEncoder?.setTriangleFillMode(aggregation.wireframeEnabled ? .lines : .fill)
         
         let m_model: float4x4 = matrix_identity_float4x4
         

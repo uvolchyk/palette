@@ -56,6 +56,8 @@ final class MTLQuestShadingAggregation {
     var position: SIMD3<Float> = .zero
   }
 
+  var wireframeEnabled: Bool = false
+
   // Shading
   /**
    TODO:
@@ -178,6 +180,7 @@ struct MTLQuestShadingContainer: View {
           }
         }
         .pickerStyle(.segmented)
+        Toggle("Wireframe", isOn: $aggregation.wireframeEnabled)
         Spacer()
       }
     }
@@ -475,3 +478,4 @@ struct MTLQuestShadingContainer: View {
     .scrollIndicators(.never)
   }
 }
+
