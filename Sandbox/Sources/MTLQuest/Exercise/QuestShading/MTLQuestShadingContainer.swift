@@ -75,7 +75,7 @@ final class MTLQuestShadingAggregation {
   // Lighting
   /**
    TODO:
-   - Color selection
+   - Color selection ✅
    - Control intensity
    - Multiple lighting sources
     - Start from predefined
@@ -89,6 +89,10 @@ final class MTLQuestShadingAggregation {
   var directionalData: DirectionalData = .init()
 
   // Model
+  /**
+   TODO:
+   - Display base plane ✅
+   */
 
   var rotationData: SIMD3<Float> = .zero
   var translationData: SIMD3<Float> = .zero
@@ -100,7 +104,7 @@ final class MTLQuestShadingAggregation {
    - Control FOV, nearZ / farZ
    */
 
-  var cameraEye: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 3.0)
+  var cameraEye: SIMD3<Float> = SIMD3<Float>(0.0, 2.0, 3.0)
   var center: SIMD3<Float> = .zero
   var up: SIMD3<Float> = SIMD3<Float>(0, 1, 0)
 
@@ -437,7 +441,7 @@ struct MTLQuestShadingContainer: View {
           Text("Eye Y: \(String(format: "%.2f", aggregation.cameraEye.y))")
           Slider(value: $aggregation.cameraEye.y, in: -5...5, step: 0.01)
           Button(action: {
-            aggregation.cameraEye.y = 0
+            aggregation.cameraEye.y = 2
           }, label: { Image(systemName: "arrow.clockwise") })
         }
         HStack {

@@ -116,6 +116,43 @@ extension MTLQuestShading {
     private var automaticRotation: Binding<Bool>
     
     private var automaticAngle: Float = 0
+
+    private lazy var oxzPlaneWireBuffer: MTLBuffer = {
+      let divs = 16
+      let size: Float = 16
+      let step = (2 * size) / Float(divs)
+      var verts: [Float] = []
+
+      /**
+         x ->
+        z
+        |
+       \_/
+
+       +---+---+
+       |   |   |
+       +---+---+
+       |   |   |
+       +---+---+
+
+       (x,z)
+
+       (-size, -size) (-size + 1 * step, -size) .... (-size + step * divs, -size)
+       (-size, -size + step * 1) ...
+       ...
+       (-size, size) ... (size, size)
+       */
+      for i in 0...divs {
+        let x = -size + Float(i) * step
+        verts += [x, 0, -size, x, 0, size]
+      }
+
+      for i in 0...divs {
+        let z = -size + Float(i) * step
+        verts += [-size, 0, z, size, 0, z]
+      }
+      return device.makeBuffer(bytes: verts, length: verts.count * MemoryLayout<Float>.size, options: [])!
+    }()
     
     weak var mtkView: MTKView?
     
@@ -327,8 +364,31 @@ extension MTLQuestShading {
               instanceCount: instanceTransforms.count
             )
           }
-
-        /// -------- End model --------
+        
+        let planePassDescriptor = MTLRenderPipelineDescriptor().configure {
+          $0.vertexDescriptor = {
+            let vd = MTLVertexDescriptor()
+            vd.attributes[0].format = .float3
+            vd.attributes[0].offset = 0
+            vd.attributes[0].bufferIndex = 0
+            vd.layouts[0].stride = MemoryLayout<Float>.size * 3
+            return vd
+          }()
+          $0.vertexFunction = try! library.funPlaneVertex
+          $0.fragmentFunction = try! library.funPlaneFragment
+          $0.colorAttachments[0].pixelFormat = view.colorPixelFormat
+          $0.depthAttachmentPixelFormat = .depth32Float
+        }
+        let planePipeline = try! device.makeRenderPipelineState(descriptor: planePassDescriptor)
+        renderEncoder?.configure { encoder in
+          encoder.setRenderPipelineState(planePipeline)
+          encoder.setVertexBuffer(oxzPlaneWireBuffer, offset: 0, index: 0)
+          encoder.setVertexBytes(&uniforms, length: MemoryLayout<SceneUniforms>.stride, index: 1)
+          encoder.setDepthStencilState(
+            device.makeDepthStencilState(descriptor: MTLDepthStencilDescriptor().configure { $0.depthCompareFunction = .less; $0.isDepthWriteEnabled = true })!
+          )
+          encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: (16+1)*4)
+        }
         
         /// -------- Start gizmo --------
 

@@ -238,7 +238,6 @@ namespace MTLQuestShading {
     float4 color;
   };
 
-  // MVP matrix for gizmo is at buffer(2)
   vertex GizmoVertexOut funVertexGizmo(
     GizmoVertexIn in          [[stage_in]],
     constant SceneUniforms &u    [[buffer(1)]],
@@ -259,4 +258,26 @@ namespace MTLQuestShading {
   fragment float4 funFragmentGizmo(GizmoVertexOut in [[stage_in]]) {
     return in.color;
   }
+
+  struct PlaneVertexIn {
+    float3 position [[attribute(0)]];
+  };
+
+  struct PlaneVertexOut {
+    float4 position [[position]];
+  };
+
+  vertex PlaneVertexOut funPlaneVertex(
+    PlaneVertexIn in [[stage_in]],
+    constant SceneUniforms &u [[buffer(1)]]
+  ) {
+    PlaneVertexOut out;
+    out.position = u.mvp * float4(in.position, 1.0);
+    return out;
+  }
+
+  fragment float4 funPlaneFragment(PlaneVertexOut in [[stage_in]]) {
+    return float4(0.7, 0.7, 0.7, 0.08);
+  }
+  // ---END---
 }
