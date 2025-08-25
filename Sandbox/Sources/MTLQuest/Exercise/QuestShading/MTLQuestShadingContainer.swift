@@ -43,17 +43,20 @@ final class MTLQuestShadingAggregation {
 
   struct PointData {
     var position: SIMD3<Float> = .init(2, 2, 10)
+    var color: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
   }
 
   struct SpotlightData {
     var position: SIMD3<Float> = .init(2, 2, 10)
     var direction: SIMD3<Float> = .init(0.0, 0.0, 1.0)
     var coneAngle: Float = .pi / 16
+    var color: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
   }
 
   struct DirectionalData {
     var direction: SIMD3<Float> = .init(0.0, 0.0, 1.0)
     var position: SIMD3<Float> = .zero
+    var color: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
   }
 
   var wireframeEnabled: Bool = false
@@ -227,6 +230,14 @@ struct MTLQuestShadingContainer: View {
                 aggregation.pointData.position.z = 10
               }, label: { Image(systemName: "arrow.clockwise") })
             }
+            ColorPicker("Light Color", selection: Binding(
+              get: { Color(red: Double(aggregation.pointData.color.x), green: Double(aggregation.pointData.color.y), blue: Double(aggregation.pointData.color.z)) },
+              set: { color in
+                var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+                UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                aggregation.pointData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+              })
+            )
           }
         case .spotlight:
           VStack(alignment: .leading) {
@@ -253,6 +264,14 @@ struct MTLQuestShadingContainer: View {
                 aggregation.spotlightData.position.z = 10
               }, label: { Image(systemName: "arrow.clockwise") })
             }
+            ColorPicker("Light Color", selection: Binding(
+              get: { Color(red: Double(aggregation.spotlightData.color.x), green: Double(aggregation.spotlightData.color.y), blue: Double(aggregation.spotlightData.color.z)) },
+              set: { color in
+                var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+                UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                aggregation.spotlightData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+              })
+            )
             Divider()
             Text("Direction")
               .font(.subheadline)
@@ -278,6 +297,14 @@ struct MTLQuestShadingContainer: View {
           VStack(alignment: .leading) {
             Text("Directional Direction")
               .font(.subheadline)
+            ColorPicker("Light Color", selection: Binding(
+              get: { Color(red: Double(aggregation.directionalData.color.x), green: Double(aggregation.directionalData.color.y), blue: Double(aggregation.directionalData.color.z)) },
+              set: { color in
+                var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+                UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                aggregation.directionalData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+              })
+            )
             HStack {
               Text("X: \(String(format: "%.2f", aggregation.directionalData.direction.x))")
               Slider(value: $aggregation.directionalData.direction.x, in: -1...1, step: 0.01)

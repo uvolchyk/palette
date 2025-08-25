@@ -23,17 +23,20 @@ namespace MTLQuestShading {
 
   struct LightingPointData {
     float3 position;
+    float3 color;
   };
 
   struct LightingSpotlightData {
     float3 position;
     float3 direction;
     float coneAngle;
+    float3 color;
   };
 
   struct LightingDirectionalData {
     float3 direction;
     float3 position;
+    float3 color;
   };
 
   float3 shadingGooch(float3 normal, float3 lightDirection, float3 eyeDirection) {
@@ -174,6 +177,7 @@ namespace MTLQuestShading {
     constant void* lightingModelData [[buffer(3)]]
   ) {
     float3 lightDir = float3(1.0);
+    float3 lightColor = float3(1.0);
 
     float attenuation = 1.0;
     switch (LightingModel(lightingModel)) {
@@ -181,6 +185,7 @@ namespace MTLQuestShading {
         const constant LightingPointData* pointData = (const constant LightingPointData*)lightingModelData;
         lightDir = normalize(pointData->position - in.worldPosition);
         attenuation = shadePoint(pointData->position, in.worldPosition);
+        lightColor = pointData->color;
         break;
       }
       case Spotlight: {
@@ -188,11 +193,13 @@ namespace MTLQuestShading {
         lightDir = normalize(spotlightData->direction);
         float angle = spotlightData->coneAngle;
         attenuation = spotlightFactor(spotlightData->position, lightDir, in.worldPosition, angle, angle + 0.05);
+        lightColor = spotlightData->color;
         break;
       }
       case Directional: {
         const constant LightingDirectionalData* directionalData = (const constant LightingDirectionalData*)lightingModelData;
         lightDir = directionalData->direction;
+        lightColor = directionalData->color;
         break;
       }
     };
@@ -213,7 +220,7 @@ namespace MTLQuestShading {
       break;
     };
 
-    return float4(shade * attenuation + in.color * 0.1, 1.0);
+    return float4(shade * attenuation * lightColor + in.color * 0.1, 1.0);
   }
 
   struct GizmoVertexIn {
