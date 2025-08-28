@@ -238,6 +238,7 @@ namespace MTLQuestShading {
     float4 color;
   };
 
+  // MVP matrix for gizmo is at buffer(2)
   vertex GizmoVertexOut funVertexGizmo(
     GizmoVertexIn in          [[stage_in]],
     constant SceneUniforms &u    [[buffer(1)]],
@@ -259,14 +260,19 @@ namespace MTLQuestShading {
     return in.color;
   }
 
+  // ---PLANE SHADING GRID/WIREFRAME EDIT---
+  // Вместо одного прямоугольника — много маленьких ячеек. 
+  // 1. Добавьте две константы:
+  constant int kPlaneGridDivisions = 16;
+  constant float kPlaneSize = 16.0;
+
+  // 2. Добавьте вершинный шейдер, который принимает вершины одного квадрата (2 треугольника), и передаёт их как есть:
   struct PlaneVertexIn {
     float3 position [[attribute(0)]];
   };
-
   struct PlaneVertexOut {
     float4 position [[position]];
   };
-
   vertex PlaneVertexOut funPlaneVertex(
     PlaneVertexIn in [[stage_in]],
     constant SceneUniforms &u [[buffer(1)]]
@@ -275,7 +281,7 @@ namespace MTLQuestShading {
     out.position = u.mvp * float4(in.position, 1.0);
     return out;
   }
-
+  // 3. Фрагментный шейдер просто возвращает прозрачный цвет (чтобы видны были только линии):
   fragment float4 funPlaneFragment(PlaneVertexOut in [[stage_in]]) {
     return float4(0.7, 0.7, 0.7, 0.08);
   }

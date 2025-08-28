@@ -68,6 +68,13 @@ final class MTLQuestShadingAggregation {
    - Control ambient
    - Blinn
    - Phong
+   - Cook-Torrance
+   - Oren-Nayar
+   - Material configuration
+   - Texture support (albedo, normal map, specular map)
+   - Ramp shading
+   - Screen Space Reflections
+   - Edge highlighting
    */
 
   var shadingModel: ShadingModel = .lambertianReflection
@@ -80,6 +87,8 @@ final class MTLQuestShadingAggregation {
    - Multiple lighting sources
     - Start from predefined
     - Focus on light accumulation
+   - Shadows
+   - Area lights (softbox, rectangle)
    */
 
   var lightingModelType: LightingModel = .point
@@ -92,6 +101,8 @@ final class MTLQuestShadingAggregation {
   /**
    TODO:
    - Display base plane ✅
+   - Model selection
+   - Bounding box
    */
 
   var rotationData: SIMD3<Float> = .zero
@@ -102,6 +113,7 @@ final class MTLQuestShadingAggregation {
   /**
    TODO:
    - Control FOV, nearZ / farZ
+   - Perspective / orthographic projection
    */
 
   var cameraEye: SIMD3<Float> = SIMD3<Float>(0.0, 2.0, 3.0)
