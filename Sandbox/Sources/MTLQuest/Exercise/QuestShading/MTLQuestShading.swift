@@ -319,30 +319,85 @@ extension MTLQuestShading {
             var lightingModelRawValue = aggregation.index
             encoder.setFragmentBytes(&lightingModelRawValue, length: MemoryLayout<Int>.stride, index: 2)
 
-            switch aggregation.lightingModelType {
-            case .point:
-              var _data = aggregation.pointData
+            var pointLights: [MTLQuestShadingPointLight] = []
+            var spotLights: [MTLQuestShadingSpotLight] = []
+            var dirLights: [MTLQuestShadingDirLight] = []
+
+            for source in aggregation.lightingSources {
+              switch source.lightingModelType {
+              case .point:
+                pointLights.append(source.pointData.metalCompatible)
+              case .spotlight:
+                spotLights.append(source.spotlightData.metalCompatible)
+              case .directional:
+                dirLights.append(source.directionalData.metalCompatible)
+              }
+            }
+
+            var lightingCounts = MTLQuestShadingLightingCounts(
+              pointCount: UInt32(pointLights.count),
+              spotCount: UInt32(spotLights.count),
+              dirCount: UInt32(dirLights.count),
+              _pad: .zero
+            )
+
+            if pointLights.isEmpty { pointLights.append(.init()) }
+            if spotLights.isEmpty { spotLights.append(.init()) }
+            if dirLights.isEmpty { dirLights.append(.init()) }
+
+            encoder.setFragmentBytes(
+              &lightingCounts,
+              length: MemoryLayout<MTLQuestShadingLightingCounts>.stride,
+              index: 2
+            )
+
+            pointLights.withUnsafeBytes { pointer in
               encoder.setFragmentBytes(
-                &_data,
-                length: MemoryLayout<MTLQuestShadingAggregation.PointData>.stride,
-                index: 3
-              )
-            case .spotlight:
-              var _data = aggregation.spotlightData
-              encoder.setFragmentBytes(
-                &_data,
-                length: MemoryLayout<MTLQuestShadingAggregation.SpotlightData>.stride,
-                index: 3
-              )
-            case .directional:
-              var _data = aggregation.directionalData
-              encoder.setFragmentBytes(
-                &_data,
-                length: MemoryLayout<MTLQuestShadingAggregation.DirectionalData>.stride,
+                pointer.baseAddress!,
+                length: pointer.count,
                 index: 3
               )
             }
-            
+
+            spotLights.withUnsafeBytes { pointer in
+              encoder.setFragmentBytes(
+                pointer.baseAddress!,
+                length: pointer.count,
+                index: 4
+              )
+            }
+
+            dirLights.withUnsafeBytes { pointer in
+              encoder.setFragmentBytes(
+                pointer.baseAddress!,
+                length: pointer.count,
+                index: 5
+              )
+            }
+//            switch aggregation.lightingModelType {
+//            case .point:
+//              var _data = aggregation.pointData
+//              encoder.setFragmentBytes(
+//                &_data,
+//                length: MemoryLayout<MTLQuestShadingAggregation.PointData>.stride,
+//                index: 3
+//              )
+//            case .spotlight:
+//              var _data = aggregation.spotlightData
+//              encoder.setFragmentBytes(
+//                &_data,
+//                length: MemoryLayout<MTLQuestShadingAggregation.SpotlightData>.stride,
+//                index: 3
+//              )
+//            case .directional:
+//              var _data = aggregation.directionalData
+//              encoder.setFragmentBytes(
+//                &_data,
+//                length: MemoryLayout<MTLQuestShadingAggregation.DirectionalData>.stride,
+//                index: 3
+//              )
+//            }
+
             // Set per-instance model matrix buffer at index 2
             // Note: Since index 2 is used here for instance buffer, 
             // consider using a different buffer index for shading model if needed,

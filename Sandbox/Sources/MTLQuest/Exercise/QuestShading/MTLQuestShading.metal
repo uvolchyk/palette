@@ -6,6 +6,8 @@
 //
 
 #include <metal_stdlib>
+#include "MTLSharedTypes.h"
+
 using namespace metal;
 
 namespace MTLQuestShading {
@@ -173,54 +175,84 @@ namespace MTLQuestShading {
   fragment float4 funFragment(
     VertexOut in [[stage_in]],
     constant int &shadingModel [[buffer(1)]],
-    constant int &lightingModel [[buffer(2)]],
-    constant void* lightingModelData [[buffer(3)]]
+    constant MTLQuestShadingLightingCounts &lightingCounts [[buffer(2)]],
+    constant MTLQuestShadingPointLight *pointLights [[buffer(3)]],
+    constant MTLQuestShadingSpotLight *spotLights [[buffer(4)]],
+    constant MTLQuestShadingDirLight *dirLights [[buffer(5)]]
   ) {
-    float3 lightDir = float3(1.0);
-    float3 lightColor = float3(1.0);
+    float3 totalShaded = float3(0.0);
 
-    float attenuation = 1.0;
-    switch (LightingModel(lightingModel)) {
-      case Point: {
-        const constant LightingPointData* pointData = (const constant LightingPointData*)lightingModelData;
-        lightDir = normalize(pointData->position - in.worldPosition);
-        attenuation = shadePoint(pointData->position, in.worldPosition);
-        lightColor = pointData->color;
-        break;
+    auto evalShading = [&](float3 N, float3 L, float3 baseColor) -> float3 {
+      switch (ShadingModel(shadingModel)) {
+        case Gooch:
+          return shadingGooch(N, normalize(L), normalize(-L));
+        case LambertianReflection:
+          return shadingLambertianReflection(N, normalize(L), baseColor);
+        case BandedLighting:
+          return shadingBandedLighting(N, normalize(L), baseColor);
       }
-      case Spotlight: {
-        const constant LightingSpotlightData* spotlightData = (const constant LightingSpotlightData*)lightingModelData;
-        lightDir = normalize(spotlightData->direction);
-        float angle = spotlightData->coneAngle;
-        attenuation = spotlightFactor(spotlightData->position, lightDir, in.worldPosition, angle, angle + 0.05);
-        lightColor = spotlightData->color;
-        break;
-      }
-      case Directional: {
-        const constant LightingDirectionalData* directionalData = (const constant LightingDirectionalData*)lightingModelData;
-        lightDir = directionalData->direction;
-        lightColor = directionalData->color;
-        break;
-      }
+      return float3(0.0);
     };
 
-    float3 shade = 0.0;
+    // Point lights
+    for (uint32_t i = 0; i < lightingCounts.pointCount; i++) {
+      const MTLQuestShadingPointLight pl = pointLights[i];
 
-    switch (ShadingModel(shadingModel)) {
-    case Gooch:
-      shade = shadingGooch(in.normal, lightDir, lightDir);
-      break;
+      float3 L = normalize(pl.position - in.worldPosition);
+      float att = shadePoint(pl.position, in.worldPosition);
 
-    case LambertianReflection:
-      shade = shadingLambertianReflection(in.normal, lightDir, in.color);
-      break;
+      // Shade with chosen model
+      float3 shaded = evalShading(in.normal, L, in.color);
 
-    case BandedLighting:
-      shade = shadingBandedLighting(in.normal, lightDir, float3(0.5));
-      break;
+      // Accumulate modulated by attenuation and color
+      totalShaded += shaded * att * pl.color;
+    }
+
+    // Spot lights
+    auto spotlightConeFactor = [&](float3 lightPos, float3 lightDir, float3 surfacePos, float cosInner, float cosOuter) -> float {
+      float3 Lvec = normalize(lightPos - surfacePos);    // from surface to light
+      float3 D    = normalize(lightDir);                 // light’s pointing direction
+      float theta = dot(Lvec, D);                        // compare with cone axis
+
+      return saturate((theta - cosOuter) / max(1e-4, (cosInner - cosOuter)));
     };
 
-    return float4(shade * attenuation * lightColor + in.color * 0.1, 1.0);
+    for (uint32_t i = 0; i < lightingCounts.spotCount; i++) {
+      const MTLQuestShadingSpotLight sl = spotLights[i];
+
+      float3 L = normalize(sl.position - in.worldPosition);
+
+      // Distance attenuation similar to point light
+      float distAtt = shadePoint(sl.position, in.worldPosition);
+
+      // Cone factor using stored cosines
+      float cone = spotlightConeFactor(sl.position, sl.direction, in.worldPosition, sl.cosInner, sl.cosOuter);
+
+      // Distance factor * cone factor * base light source intensity factor
+      float att = distAtt * cone * sl.intensity;
+
+      // Shade with chosen model
+      float3 shaded = evalShading(in.normal, L, in.color);
+
+      // Accumulate modulated by attenuation and color
+      totalShaded += shaded * att * sl.color;
+    }
+
+    // Directional lights
+    for (uint32_t i = 0; i < lightingCounts.dirCount; i++) {
+      const MTLQuestShadingDirLight dl = dirLights[i];
+
+      // Directional light direction is assumed to be the light-to-surface direction for shading functions.
+      float3 L = normalize(-dl.direction);
+
+      float att = dl.intensity;
+
+      float3 shaded = evalShading(in.normal, L, dl.color);
+
+      totalShaded += shaded * att * dl.color;
+    }
+
+    return float4(totalShaded, 1.0);
   }
 
   struct GizmoVertexIn {
@@ -260,13 +292,8 @@ namespace MTLQuestShading {
     return in.color;
   }
 
-  // ---PLANE SHADING GRID/WIREFRAME EDIT---
-  // Вместо одного прямоугольника — много маленьких ячеек. 
-  // 1. Добавьте две константы:
-  constant int kPlaneGridDivisions = 16;
-  constant float kPlaneSize = 16.0;
-
-  // 2. Добавьте вершинный шейдер, который принимает вершины одного квадрата (2 треугольника), и передаёт их как есть:
+  // ---START---
+  // draw a plane
   struct PlaneVertexIn {
     float3 position [[attribute(0)]];
   };
@@ -281,9 +308,9 @@ namespace MTLQuestShading {
     out.position = u.mvp * float4(in.position, 1.0);
     return out;
   }
-  // 3. Фрагментный шейдер просто возвращает прозрачный цвет (чтобы видны были только линии):
   fragment float4 funPlaneFragment(PlaneVertexOut in [[stage_in]]) {
     return float4(0.7, 0.7, 0.7, 0.08);
   }
   // ---END---
 }
+

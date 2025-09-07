@@ -44,6 +44,15 @@ final class MTLQuestShadingAggregation {
   struct PointData {
     var position: SIMD3<Float> = .init(2, 2, 10)
     var color: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
+
+    var metalCompatible: MTLQuestShadingPointLight {
+      .init(
+        position: position,
+        _pad0: .zero,
+        color: color,
+        intensity: 1.0
+      )
+    }
   }
 
   struct SpotlightData {
@@ -51,12 +60,42 @@ final class MTLQuestShadingAggregation {
     var direction: SIMD3<Float> = .init(0.0, 0.0, 1.0)
     var coneAngle: Float = .pi / 16
     var color: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
+
+    var metalCompatible: MTLQuestShadingSpotLight {
+      .init(
+        position: position,
+        _pad0: .zero,
+        direction: direction,
+        cosOuter: coneAngle,
+        color: color,
+        intensity: 1.0,
+        cosInner: coneAngle - 0.1,
+        _pad1: (0.0, 0.0, 0.0)
+      )
+    }
   }
 
   struct DirectionalData {
     var direction: SIMD3<Float> = .init(0.0, 0.0, 1.0)
     var position: SIMD3<Float> = .zero
     var color: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
+
+    var metalCompatible: MTLQuestShadingDirLight {
+      .init(
+        direction: direction,
+        _pad0: .zero,
+        color: color,
+        intensity: 1.0
+      )
+    }
+  }
+
+  struct LightingSource {
+    var lightingModelType: LightingModel = .point
+
+    var pointData: PointData = .init()
+    var spotlightData: SpotlightData = .init()
+    var directionalData: DirectionalData = .init()
   }
 
   var wireframeEnabled: Bool = false
@@ -84,12 +123,35 @@ final class MTLQuestShadingAggregation {
    TODO:
    - Color selection ✅
    - Control intensity
-   - Multiple lighting sources
-    - Start from predefined
-    - Focus on light accumulation
+   - Multiple lighting sources ✅
+    - Start from predefined ✅
+    - Focus on light accumulation ✅
    - Shadows
    - Area lights (softbox, rectangle)
    */
+
+  var lightingSources: [LightingSource] = [
+    .init(
+      lightingModelType: .point,
+      pointData: PointData(
+        position: .init(-6, 2, 10),
+      )
+    ),
+    .init(
+      lightingModelType: .point,
+      pointData: PointData(
+        position: .init(6, 2, 10),
+      )
+    ),
+    .init(
+      lightingModelType: .point,
+      pointData: PointData(
+        position: .init(2, 6, 10),
+      )
+    )
+  ]
+
+  var activeLightIndex: Int = 0
 
   var lightingModelType: LightingModel = .point
 
@@ -210,48 +272,99 @@ struct MTLQuestShadingContainer: View {
   private func lightingConfiguration() -> some View {
     ScrollView {
       VStack(spacing: 24) {
-        Picker("Lighting Model", selection: $aggregation.lightingModelType) {
+        Picker("Light #", selection: $aggregation.activeLightIndex) {
+          ForEach(0..<aggregation.lightingSources.count, id: \.self) { i in
+            Text("Light \(i+1)").tag(i)
+          }
+        }
+        .pickerStyle(.segmented)
+
+        let bindingSource = Binding<MTLQuestShadingAggregation.LightingSource>(
+          get: { aggregation.lightingSources[aggregation.activeLightIndex] },
+          set: { aggregation.lightingSources[aggregation.activeLightIndex] = $0 }
+        )
+
+        Picker("Lighting Model", selection: Binding(
+          get: { bindingSource.wrappedValue.lightingModelType },
+          set: { newValue in
+            var source = bindingSource.wrappedValue
+            source.lightingModelType = newValue
+            bindingSource.wrappedValue = source
+          })) {
           ForEach(MTLQuestShadingAggregation.LightingModel.allCases) { model in
             Text(model.displayName).tag(model)
           }
         }
         .pickerStyle(.segmented)
 
-        switch aggregation.lightingModelType {
+        switch bindingSource.wrappedValue.lightingModelType {
         case .point:
           VStack(alignment: .leading) {
             Text("Point Light Position")
               .font(.subheadline)
+
             HStack {
-              Text("X: \(String(format: "%.2f", aggregation.pointData.position.x))")
+              Text("X: \(String(format: "%.2f", bindingSource.wrappedValue.pointData.position.x))")
               Slider(
-                value: $aggregation.pointData.position.x,
+                value: Binding(
+                  get: { bindingSource.wrappedValue.pointData.position.x },
+                  set: { newVal in
+                    var source = bindingSource.wrappedValue
+                    source.pointData.position.x = newVal
+                    bindingSource.wrappedValue = source
+                  }
+                ),
                 in: -30...30, step: 0.1
               )
               Button(action: {
-                aggregation.pointData.position.x = 2
+                var source = bindingSource.wrappedValue
+                source.pointData.position.x = 2
+                bindingSource.wrappedValue = source
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", aggregation.pointData.position.y))")
-              Slider(value: $aggregation.pointData.position.y, in: -30...30, step: 0.1)
+              Text("Y: \(String(format: "%.2f", bindingSource.wrappedValue.pointData.position.y))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.pointData.position.y },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.pointData.position.y = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -30...30, step: 0.1)
               Button(action: {
-                aggregation.pointData.position.y = 8
+                var source = bindingSource.wrappedValue
+                source.pointData.position.y = 8
+                bindingSource.wrappedValue = source
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", aggregation.pointData.position.z))")
-              Slider(value: $aggregation.pointData.position.z, in: -30...30, step: 0.1)
+              Text("Z: \(String(format: "%.2f", bindingSource.wrappedValue.pointData.position.z))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.pointData.position.z },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.pointData.position.z = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -30...30, step: 0.1)
               Button(action: {
-                aggregation.pointData.position.z = 10
+                var source = bindingSource.wrappedValue
+                source.pointData.position.z = 10
+                bindingSource.wrappedValue = source
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             ColorPicker("Light Color", selection: Binding(
-              get: { Color(red: Double(aggregation.pointData.color.x), green: Double(aggregation.pointData.color.y), blue: Double(aggregation.pointData.color.z)) },
+              get: {
+                let c = bindingSource.wrappedValue.pointData.color
+                return Color(red: Double(c.x), green: Double(c.y), blue: Double(c.z))
+              },
               set: { color in
                 var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
                 UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
-                aggregation.pointData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+                var source = bindingSource.wrappedValue
+                source.pointData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+                bindingSource.wrappedValue = source
               })
             )
           }
@@ -260,53 +373,113 @@ struct MTLQuestShadingContainer: View {
             Text("Spotlight Position")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", aggregation.spotlightData.position.x))")
-              Slider(value: $aggregation.spotlightData.position.x, in: -30...30, step: 0.1)
+              Text("X: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.position.x))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.position.x },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.position.x = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -30...30, step: 0.1)
               Button(action: {
-                aggregation.spotlightData.position.x = 2
+                var source = bindingSource.wrappedValue
+                source.spotlightData.position.x = 2
+                bindingSource.wrappedValue = source
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", aggregation.spotlightData.position.y))")
-              Slider(value: $aggregation.spotlightData.position.y, in: -30...30, step: 0.1)
+              Text("Y: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.position.y))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.position.y },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.position.y = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -30...30, step: 0.1)
               Button(action: {
-                aggregation.spotlightData.position.y = 8
+                var source = bindingSource.wrappedValue
+                source.spotlightData.position.y = 8
+                bindingSource.wrappedValue = source
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", aggregation.spotlightData.position.z))")
-              Slider(value: $aggregation.spotlightData.position.z, in: -30...30, step: 0.1)
+              Text("Z: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.position.z))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.position.z },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.position.z = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -30...30, step: 0.1)
               Button(action: {
-                aggregation.spotlightData.position.z = 10
+                var source = bindingSource.wrappedValue
+                source.spotlightData.position.z = 10
+                bindingSource.wrappedValue = source
               }, label: { Image(systemName: "arrow.clockwise") })
             }
             ColorPicker("Light Color", selection: Binding(
-              get: { Color(red: Double(aggregation.spotlightData.color.x), green: Double(aggregation.spotlightData.color.y), blue: Double(aggregation.spotlightData.color.z)) },
+              get: {
+                let c = bindingSource.wrappedValue.spotlightData.color
+                return Color(red: Double(c.x), green: Double(c.y), blue: Double(c.z))
+              },
               set: { color in
                 var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
                 UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
-                aggregation.spotlightData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+                var source = bindingSource.wrappedValue
+                source.spotlightData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+                bindingSource.wrappedValue = source
               })
             )
             Divider()
             Text("Direction")
               .font(.subheadline)
             HStack {
-              Text("X: \(String(format: "%.2f", aggregation.spotlightData.direction.x))")
-              Slider(value: $aggregation.spotlightData.direction.x, in: -1...1, step: 0.01)
+              Text("X: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.direction.x))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.direction.x },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.direction.x = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", aggregation.spotlightData.direction.y))")
-              Slider(value: $aggregation.spotlightData.direction.y, in: -1...1, step: 0.01)
+              Text("Y: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.direction.y))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.direction.y },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.direction.y = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", aggregation.spotlightData.direction.z))")
-              Slider(value: $aggregation.spotlightData.direction.z, in: -1...1, step: 0.01)
+              Text("Z: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.direction.z))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.direction.z },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.direction.z = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -1...1, step: 0.01)
             }
             Divider()
             HStack {
-              Text("Cone Angle: \(String(format: "%.2f", aggregation.spotlightData.coneAngle))")
-              Slider(value: $aggregation.spotlightData.coneAngle, in: 0...(.pi / 2), step: 0.01)
+              Text("Cone Angle: \(String(format: "%.2f", bindingSource.wrappedValue.spotlightData.coneAngle))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.spotlightData.coneAngle },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.spotlightData.coneAngle = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: 0...(.pi / 2), step: 0.01)
             }
           }
         case .directional:
@@ -314,24 +487,50 @@ struct MTLQuestShadingContainer: View {
             Text("Directional Direction")
               .font(.subheadline)
             ColorPicker("Light Color", selection: Binding(
-              get: { Color(red: Double(aggregation.directionalData.color.x), green: Double(aggregation.directionalData.color.y), blue: Double(aggregation.directionalData.color.z)) },
+              get: {
+                let c = bindingSource.wrappedValue.directionalData.color
+                return Color(red: Double(c.x), green: Double(c.y), blue: Double(c.z))
+              },
               set: { color in
                 var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
                 UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
-                aggregation.directionalData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+                var source = bindingSource.wrappedValue
+                source.directionalData.color = SIMD3<Float>(Float(r), Float(g), Float(b))
+                bindingSource.wrappedValue = source
               })
             )
             HStack {
-              Text("X: \(String(format: "%.2f", aggregation.directionalData.direction.x))")
-              Slider(value: $aggregation.directionalData.direction.x, in: -1...1, step: 0.01)
+              Text("X: \(String(format: "%.2f", bindingSource.wrappedValue.directionalData.direction.x))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.directionalData.direction.x },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.directionalData.direction.x = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Y: \(String(format: "%.2f", aggregation.directionalData.direction.y))")
-              Slider(value: $aggregation.directionalData.direction.y, in: -1...1, step: 0.01)
+              Text("Y: \(String(format: "%.2f", bindingSource.wrappedValue.directionalData.direction.y))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.directionalData.direction.y },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.directionalData.direction.y = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -1...1, step: 0.01)
             }
             HStack {
-              Text("Z: \(String(format: "%.2f", aggregation.directionalData.direction.z))")
-              Slider(value: $aggregation.directionalData.direction.z, in: -1...1, step: 0.01)
+              Text("Z: \(String(format: "%.2f", bindingSource.wrappedValue.directionalData.direction.z))")
+              Slider(value: Binding(
+                get: { bindingSource.wrappedValue.directionalData.direction.z },
+                set: { newVal in
+                  var source = bindingSource.wrappedValue
+                  source.directionalData.direction.z = newVal
+                  bindingSource.wrappedValue = source
+                }
+              ), in: -1...1, step: 0.01)
             }
           }
         }
